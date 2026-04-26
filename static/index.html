@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Intelligent Code Analysis with Step-by-Step Execution Visualization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════
+   CODEVIZ — Retro-terminal meets modern clarity
+══════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c14; --surface:#0d1526; --surface2:#121d34; --border:#1e2d4a; --border2:#243658;
+  --text:#e8f4fd; --muted:#6b8cad; --dim:#344d6e; --green:#00e676; --green2:#00c853;
+  --amber:#ffab40; --amber2:#ff8f00; --blue:#448aff; --blue2:#2979ff; --red:#ff5252;
+  --pink:#ff4081; --purple:#e040fb; --teal:#1de9b6; --cyan:#18ffff;
+  --mono:'Space Mono',monospace; --ui:'Outfit',sans-serif;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:14px;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,230,118,.012) 2px,rgba(0,230,118,.012) 4px);pointer-events:none;z-index:0}
+
+/* ─── TOPBAR ─── */
+#topbar{height:50px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0;position:relative;z-index:10;}
+.logo{font-family:var(--mono);font-weight:700;font-size:16px;letter-spacing:-1px;background:linear-gradient(135deg,var(--green),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:flex;align-items:center;gap:8px;}
+.logo-bracket{color:var(--amber);-webkit-text-fill-color:var(--amber);font-size:18px}
+.tagline{font-size:11px;color:var(--muted);font-family:var(--mono);opacity:.7}
+.sp{flex:1}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ─── MAIN LAYOUT ─── */
+#main{display:grid;grid-template-columns:420px 1fr;flex:1;overflow:hidden;position:relative;z-index:1;}
+
+/* ─── LEFT PANEL (EDITOR) ─── */
+#left{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);overflow:hidden;}
+#editorhead{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--surface2);}
+.editor-title{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;flex:1}
+.btn{padding:6px 16px;border-radius:6px;font-family:var(--ui);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;border:none;}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-run{background:linear-gradient(135deg,var(--green),var(--teal));color:#000;letter-spacing:.3px;}
+.btn-run:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
+.btn-trace{background:transparent;border:1px solid var(--amber);color:var(--amber);}
+.btn-trace:hover:not(:disabled){background:rgba(255,171,64,.1)}
+#qsamples{padding:7px 12px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex-shrink:0;background:var(--bg);}
+.qcat{font-size:9px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;padding:2px 0;flex-shrink:0}
+.qbtn{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);transition:all .12s;white-space:nowrap;}
+.qbtn:hover,.qbtn.on{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.08);}
+
+#edwrap{display:flex;flex:1;overflow:hidden}
+#lns{width:38px;padding:10px 4px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.7;overflow:hidden;user-select:none;flex-shrink:0;border-right:1px solid var(--border);background:var(--bg);}
+#ed{flex:1;background:transparent;border:none;outline:none;resize:none;font-family:var(--mono);font-size:12px;color:var(--text);line-height:1.7;padding:10px 12px;tab-size:4;overflow-y:auto;white-space:pre;caret-color:var(--green);}
+#ed::selection{background:rgba(0,230,118,.2)}
+#edfoot{padding:6px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0;background:var(--surface2);}
+.tag{font-size:10px;padding:2px 9px;border-radius:12px;font-family:var(--mono);background:var(--surface);border:1px solid var(--border2);color:var(--muted);}
+.tag.detected{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.08)}
+
+/* ─── RIGHT PANEL ─── */
+#right{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+#tabs{display:flex;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;gap:0;}
+.tab{padding:13px 16px;font-size:12px;font-weight:500;font-family:var(--mono);color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px;}
+.tab:hover{color:var(--muted)}
+.tab.on{color:var(--green);border-bottom-color:var(--green)}
+#panels{flex:1;overflow:hidden}
+.panel{display:none;height:100%;flex-direction:column;overflow:hidden}
+.panel.on{display:flex}
+
+/* ─── ANIMATION PANEL ─── */
+#anim-panel{flex:1;display:flex;flex-direction:column;padding:12px;gap:10px;overflow:hidden}
+#animctrl{display:flex;align-items:center;gap:6px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;}
+.ctrl-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;}
+.ctrl-btn:hover{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.08)}
+.ctrl-btn.play{background:linear-gradient(135deg,var(--green),var(--teal));color:#000;border:none;font-weight:700;width:80px;font-size:12px;gap:4px;font-family:var(--mono);}
+.ctrl-btn.play:hover{filter:brightness(1.1)}
+#stepctr{font-family:var(--mono);font-size:12px;color:var(--green);min-width:52px;text-align:center;}
+.spd-wrap{display:flex;align-items:center;gap:6px;flex:1;max-width:130px}
+input[type=range]{flex:1;accent-color:var(--green);cursor:pointer;height:3px;}
+#spdlbl{font-family:var(--mono);font-size:10px;color:var(--dim);min-width:22px}
+.divider{width:1px;height:24px;background:var(--border);margin:0 4px;flex-shrink:0}
+#typetag{font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 10px;border-radius:12px;border:1px solid;letter-spacing:.5px;transition:all .3s;}
+
+#stage{flex:1;border-radius:12px;overflow:hidden;border:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface);min-height:0;position:relative;}
+#stage::before{content:'';position:absolute;inset:-1px;border-radius:13px;background:linear-gradient(135deg,var(--green)22,transparent 50%,var(--amber)22);z-index:0;opacity:0;transition:opacity .3s;pointer-events:none;}
+#stage.active::before{opacity:1}
+#stage-inner{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;background:var(--surface);border-radius:12px;overflow:hidden}
+#stagehead{padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+#stagemsg{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#stageinfo{font-size:11px;color:var(--muted);font-family:var(--mono);max-width:260px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#stageview{flex:1;overflow:auto;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;position:relative;min-height:0;}
+
+.empty-state{display:flex;flex-direction:column;align-items:center;gap:16px;opacity:.6;}
+.empty-icon{font-size:48px;animation:float 3s ease infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.empty-title{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.empty-hint{font-size:12px;color:var(--dim);text-align:center;max-width:260px;line-height:1.6}
+
+#stagelegend{padding:8px 16px;background:var(--surface2);border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;flex-shrink:0;align-items:center;}
+.leg-item{font-size:11px;display:flex;align-items:center;gap:5px;color:var(--muted);font-family:var(--mono)}
+.leg-dot{width:10px;height:10px;border-radius:3px;border:2px solid;flex-shrink:0}
+
+/* ═══════════════════════════════════════════
+   ELEMENT BOXES
+═══════════════════════════════════════════ */
+.el{width:52px;height:52px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:18px;font-weight:700;border:2px solid;flex-shrink:0;position:relative;transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .2s,border-color .2s,box-shadow .2s,opacity .2s;cursor:default;}
+.el .idx{position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:9px;color:var(--dim);font-weight:400;font-family:var(--mono)}
+.el.normal{background:rgba(68,138,255,.1);border-color:rgba(68,138,255,.4);color:#82b1ff}
+.el.compare{background:rgba(255,171,64,.2);border-color:var(--amber);color:var(--amber);transform:translateY(-16px) scale(1.12);box-shadow:0 8px 24px rgba(255,171,64,.35)}
+.el.swap{background:rgba(255,82,82,.22);border-color:var(--red);color:var(--red);transform:translateY(-20px) scale(1.18);box-shadow:0 10px 28px rgba(255,82,82,.4);animation:swpshake .3s ease}
+.el.sorted{background:rgba(0,230,118,.14);border-color:var(--green);color:var(--green)}
+.el.lifted{transform:translateY(-44px) scale(1.15);background:rgba(255,171,64,.22);border-color:var(--amber);color:var(--amber);box-shadow:0 20px 40px rgba(255,171,64,.4)}
+.el.inserting{background:rgba(0,230,118,.18);border-color:var(--green);color:var(--green);transform:scale(1.08)}
+.el.shifting{background:rgba(68,138,255,.12);border-color:rgba(68,138,255,.6);color:#82b1ff;transform:translateX(6px)}
+.el.minmark{background:rgba(255,64,129,.18);border-color:var(--pink);color:var(--pink);transform:translateY(-10px) scale(1.1);box-shadow:0 6px 18px rgba(255,64,129,.3)}
+.el.scan{background:rgba(255,171,64,.16);border-color:var(--amber);color:var(--amber);transform:translateY(-10px) scale(1.08)}
+.el.mid{background:rgba(224,64,251,.2);border-color:var(--purple);color:#ea80fc;transform:translateY(-14px) scale(1.12);box-shadow:0 8px 24px rgba(224,64,251,.3)}
+.el.inrange{background:rgba(68,138,255,.08);border-color:rgba(68,138,255,.35);color:#82b1ff}
+.el.elim{background:rgba(30,40,60,.4);border-color:var(--dim);color:var(--dim);opacity:.35}
+.el.found{background:rgba(0,230,118,.25);border-color:var(--green);color:var(--green);transform:scale(1.24);box-shadow:0 0 32px rgba(0,230,118,.5);animation:foundpulse .5s ease infinite alternate}
+.el.skip{background:rgba(20,30,50,.35);border-color:var(--dim);color:var(--dim);opacity:.4}
+.el.active{background:rgba(224,64,251,.16);border-color:var(--purple);color:#ea80fc;transform:translateY(-10px) scale(1.08)}
+@keyframes swpshake{0%,100%{rotate:0deg}30%{rotate:-4deg}70%{rotate:4deg}}
+@keyframes foundpulse{from{box-shadow:0 0 16px rgba(0,230,118,.4)}to{box-shadow:0 0 36px rgba(0,230,118,.8)}}
+.arrrow{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;justify-content:center;margin-bottom:26px}
+
+.varcard{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:10px 14px;min-width:80px;text-align:center;transition:all .3s;}
+.varcard.changed{animation:cardpop .35s ease;border-color:var(--amber);background:rgba(255,171,64,.08)}
+.varcard.new{animation:cardpop .35s ease;border-color:var(--green);background:rgba(0,230,118,.08)}
+.varcard .vname{font-size:9px;color:var(--muted);font-family:var(--mono);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.varcard .vval{font-size:20px;font-weight:700;font-family:var(--mono)}
+.varcard .vtype{font-size:8px;color:var(--dim);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+@keyframes cardpop{0%{transform:scale(.8);opacity:.5}60%{transform:scale(1.1)}100%{transform:scale(1)}}
+
+/* TRACE PANEL */
+#tracewrap{flex:1;display:flex;flex-direction:column;padding:12px;gap:8px;overflow:hidden}
+#tracectrl{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:7px;flex-shrink:0;}
+.trow{display:flex;align-items:center;gap:7px}
+#tctr{font-family:var(--mono);font-size:11px;color:var(--green);min-width:52px;text-align:right}
+#tstat{font-size:11px;color:var(--muted);flex:1;text-align:right}
+#tsplit{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-height:0}
+.tbox{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;}
+.tbh{background:var(--surface2);border-bottom:1px solid var(--border);padding:6px 11px;font-size:9px;color:var(--muted);font-family:var(--mono);font-weight:700;letter-spacing:1px;text-transform:uppercase;flex-shrink:0;}
+#tlines{flex:1;overflow-y:auto;font-family:var(--mono);font-size:12px;line-height:1.7;padding:4px 0}
+.cl{display:flex;gap:5px;padding:1px 10px}
+.cl .ln{color:var(--dim);min-width:18px;text-align:right;font-size:10px;user-select:none;flex-shrink:0}
+.cl .lt{color:var(--text);white-space:pre}
+.cl.cur{background:rgba(0,230,118,.1);border-left:3px solid var(--green)}
+.cl.cur .ln{color:var(--green)}
+.cl.cur .lt{color:#fff;font-weight:600}
+.cl.vis{background:rgba(0,230,118,.03)}
+#vbox{border-top:1px solid var(--border);padding:6px 10px;max-height:100px;overflow-y:auto;flex-shrink:0}
+.vr{display:flex;gap:5px;font-family:var(--mono);font-size:11px;padding:2px 0}
+.vk{color:var(--blue);min-width:64px;flex-shrink:0}
+.vv{color:var(--amber);word-break:break-all}
+#traceout{flex:1;overflow-y:auto;font-family:var(--mono);font-size:13px;line-height:1.8;padding:10px;color:var(--green);white-space:pre}
+
+/* OUTPUT PANEL */
+#outwrap{flex:1;display:flex;flex-direction:column;padding:12px;gap:8px;overflow:hidden}
+.outbox{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:var(--mono);font-size:13px;flex:1;white-space:pre;overflow:auto;color:var(--green);}
+.outbox.err{color:var(--red);background:rgba(255,82,82,.05);border-color:rgba(255,82,82,.25)}
+
+/* EXPLAIN BOXES */
+.explain-box{padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;text-align:center;max-width:500px;width:100%;line-height:1.5;border:1px solid;}
+.output-box{font-family:var(--mono);font-size:13px;color:var(--green);background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:8px 16px;width:100%;max-width:500px;text-align:center;display:flex;align-items:center;gap:8px;}
+.output-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
+
+/* LOOP BAR */
+.loopbar{width:100%;background:rgba(68,138,255,.08);border:1px solid rgba(68,138,255,.2);border-radius:8px;overflow:hidden;}
+.loopfill{height:32px;background:linear-gradient(90deg,var(--green),var(--teal));border-radius:8px;transition:width .3s ease;display:flex;align-items:center;padding:0 12px;font-family:var(--mono);font-size:12px;color:#000;font-weight:700;min-width:32px;}
+
+#toast{position:fixed;bottom:16px;right:16px;padding:9px 18px;border-radius:9px;font-size:12px;font-family:var(--mono);pointer-events:none;opacity:0;transition:opacity .22s;border:1px solid;z-index:999;}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+#ghurl:focus{border-color:var(--green)!important;box-shadow:0 0 0 2px rgba(0,230,118,.15)}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">
+    <span class="logo-bracket">[</span>CodeViz<span class="logo-bracket">]</span>
+  </div>
+  <div class="tagline">// paste Python → instant animation</div>
+  <div class="sp"></div>
+  <div style="display:flex;align-items:center;gap:6px">
+    <div class="status-dot"></div>
+    <span style="font-size:10px;color:var(--muted);font-family:var(--mono)">READY</span>
+  </div>
+</div>
+
+<div id="main">
+  <div id="left">
+    <div id="editorhead">
+      <span class="editor-title">// Python Editor</span>
+      <button class="btn btn-run" id="abtn" onclick="doAnalyze()">▶ Analyze</button>
+      <button class="btn btn-trace" id="tbtn" onclick="doTrace()">⏱ Trace</button>
+    </div>
+
+    <div id="githubbar" style="padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--dim);flex-shrink:0">GH URL</span>
+      <input id="ghurl" type="text" placeholder="https://raw.githubusercontent.com/user/repo/main/file.py"
+        style="flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;"
+        onkeydown="if(event.key==='Enter')fetchGH()"/>
+      <button class="btn btn-trace" style="padding:4px 12px;font-size:11px" id="ghfetchbtn" onclick="fetchGH()">Fetch</button>
+    </div>
+    <div id="qsamples">
+      <span class="qcat">Sort:</span>
+      <button class="qbtn" onclick="loadQ('bubble')">Bubble</button>
+      <button class="qbtn" onclick="loadQ('insert')">Insert</button>
+      <button class="qbtn" onclick="loadQ('select')">Select</button>
+      <span class="qcat" style="margin-left:6px">Search:</span>
+      <button class="qbtn" onclick="loadQ('linear')">Linear</button>
+      <button class="qbtn" onclick="loadQ('binary')">Binary</button>
+      <span class="qcat" style="margin-left:6px">DS:</span>
+      <button class="qbtn" onclick="loadQ('stack')">Stack</button>
+      <button class="qbtn" onclick="loadQ('queue')">Queue</button>
+      <button class="qbtn" onclick="loadQ('linkedlist')">LL</button>
+      <button class="qbtn" onclick="loadQ('bst')">BST</button>
+      <span class="qcat" style="margin-left:6px">Logic:</span>
+      <button class="qbtn" onclick="loadQ('login')">Login</button>
+      <button class="qbtn" onclick="loadQ('traffic')">Traffic</button>
+      <button class="qbtn" onclick="loadQ('student')">Grade</button>
+      <button class="qbtn" onclick="loadQ('banking')">Banking</button>
+      <button class="qbtn" onclick="loadQ('game')">Game</button>
+      <span class="qcat" style="margin-left:6px">More:</span>
+      <button class="qbtn" onclick="loadQ('fib')">Fib</button>
+      <button class="qbtn" onclick="loadQ('pattern')">Pattern</button>
+      <button class="qbtn" onclick="loadQ('array')">Array</button>
+      <button class="qbtn" onclick="loadQ('error')">Error</button>
+    </div>
+
+    <div id="edwrap">
+      <div id="lns"></div>
+      <textarea id="ed" spellcheck="false" oninput="onEdit()" onscroll="syncScroll()"
+        placeholder="# type any Python code here&#10;# CodeViz detects the algorithm automatically&#10;&#10;arr = [64, 34, 25, 12, 22, 11, 90]&#10;n = len(arr)&#10;for i in range(n):&#10;    for j in range(0, n - i - 1):&#10;        if arr[j] > arr[j + 1]:&#10;            arr[j], arr[j + 1] = arr[j + 1], arr[j]&#10;print(arr)"></textarea>
+    </div>
+
+    <div id="edfoot">
+      <span id="detected" class="tag">detecting…</span>
+      <div style="flex:1"></div>
+      <span id="linecount" class="tag">0 lines</span>
+    </div>
+  </div>
+
+  <div id="right">
+    <div id="tabs">
+      <div class="tab on" onclick="goTab('anim')">▶ Animation</div>
+      <div class="tab" onclick="goTab('trace')">⏱ Trace</div>
+      <div class="tab" onclick="goTab('out')">⊞ Output</div>
+    </div>
+
+    <div id="panels">
+      <div class="panel on" id="panel-anim">
+        <div id="anim-panel">
+          <div id="animctrl">
+            <button class="ctrl-btn play" id="playbtn" onclick="vPlay()">▶ Play</button>
+            <button class="ctrl-btn" onclick="vPause()" title="Pause">⏸</button>
+            <button class="ctrl-btn" onclick="vStepB()" title="Step back">◀</button>
+            <button class="ctrl-btn" onclick="vStepF()" title="Step forward">▶</button>
+            <button class="ctrl-btn" onclick="vReset()" title="Reset">↺</button>
+            <span id="stepctr">—/—</span>
+            <div class="divider"></div>
+            <div class="spd-wrap">
+              <span style="font-size:10px;color:var(--dim);font-family:var(--mono)">SPD</span>
+              <input type="range" id="spd" min="1" max="10" value="4" oninput="setSpeed(this.value)"/>
+              <span id="spdlbl">4×</span>
+            </div>
+            <div style="flex:1"></div>
+            <span id="typetag" style="border-color:var(--dim);color:var(--dim)">—</span>
+          </div>
+
+          <div id="stage">
+            <div id="stage-inner">
+              <div id="stagehead">
+                <span id="stagemsg">Analyze code to begin</span>
+                <span id="stageinfo"></span>
+              </div>
+              <div id="stageview">
+                <div class="empty-state">
+                  <div class="empty-icon">⚡</div>
+                  <div class="empty-title">Ready to Visualize</div>
+                  <div class="empty-hint">Paste any Python code, select a sample, then click Analyze → Play</div>
+                </div>
+              </div>
+              <div id="stagelegend"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-trace">
+        <div id="tracewrap">
+          <div id="tracectrl">
+            <div class="trow">
+              <button class="btn btn-run" style="padding:5px 12px;font-size:11px" onclick="playT()">▶</button>
+              <button class="topbtn ghost" style="padding:5px 10px" onclick="pauseT()">⏸</button>
+              <button class="topbtn ghost" style="padding:5px 10px" onclick="stepB()">◀</button>
+              <button class="topbtn ghost" style="padding:5px 10px" onclick="stepF()">▶</button>
+              <button class="topbtn ghost" style="padding:5px 10px" onclick="resetT()">↺</button>
+              <span id="tctr">—/—</span>
+            </div>
+            <div class="trow">
+              <span style="font-size:10px;color:var(--dim);font-family:var(--mono)">SPEED</span>
+              <input type="range" id="tspd" min="1" max="14" value="5" oninput="setTSpd(this.value)" style="max-width:100px"/>
+              <span id="tspdlbl" style="font-size:10px;color:var(--dim);font-family:var(--mono)">5×</span>
+              <span id="tstat" style="flex:1;text-align:right;font-size:11px;color:var(--muted)">Run trace first</span>
+            </div>
+          </div>
+          <div id="tsplit">
+            <div class="tbox">
+              <div class="tbh">Code Execution</div>
+              <div id="tlines"></div>
+              <div id="vbox"><p style="color:var(--dim);font-size:10px;padding:4px;font-family:var(--mono)">// variables appear here</p></div>
+            </div>
+            <div class="tbox">
+              <div class="tbh">Live Output</div>
+              <div id="traceout" style="background:var(--bg)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-out">
+        <div id="outwrap">
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap">
+            <button class="btn btn-run" onclick="runOutput()">▶ Run Program</button>
+            <span style="font-size:11px;color:var(--dim);font-family:var(--mono)">// also shows live output during ⏱ Trace</span>
+          </div>
+          <div id="outresult" class="outbox">// press ▶ Run Program or ⏱ Trace to see output</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:8000';
+
+let VA = { steps:[], idx:0, timer:null, spd:4, paused:false, type:'' };
+let TS = [], TI = 0, TTimer = null, TSpd = 5, outAccum = '';
+
+const QS = {
+bubble:`arr = [64, 34, 25, 12, 22, 11, 90]\nn = len(arr)\nfor i in range(n):\n    for j in range(0, n - i - 1):\n        if arr[j] > arr[j + 1]:\n            arr[j], arr[j + 1] = arr[j + 1], arr[j]\nprint("Sorted:", arr)`,
+insert:`arr = [12, 11, 13, 5, 6]\nn = len(arr)\nfor i in range(1, n):\n    key = arr[i]\n    j = i - 1\n    while j >= 0 and arr[j] > key:\n        arr[j + 1] = arr[j]\n        j -= 1\n    arr[j + 1] = key\nprint("Sorted:", arr)`,
+binary:`def binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    while left <= right:\n        mid = (left + right) // 2\n        if arr[mid] == target: return mid\n        elif arr[mid] < target: left = mid + 1\n        else: right = mid - 1\n    return -1\narr = [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]\nprint(binary_search(arr, 23))`,
+fib:`def fib(n):\n    if n <= 1: return n\n    return fib(n-1) + fib(n-2)\nfor i in range(7):\n    print(f"fib({i}) = {fib(i)}")`,
+stack:`stack = []\nstack.append(10)\nstack.append(20)\nstack.append(30)\nprint("Stack:", stack)\ntop = stack.pop()\nprint("Popped:", top)\nprint("Stack:", stack)`,
+pattern:`rows = 5\nfor i in range(1, rows + 1):\n    for j in range(rows - i):\n        print(" ", end="")\n    for k in range(2 * i - 1):\n        print("*", end="")\n    print()`,
+string:`text = "hello world"\nfreq = {}\nfor ch in text:\n    freq[ch] = freq.get(ch, 0) + 1\nfor k, v in sorted(freq.items()):\n    if k != ' ':\n        print(f"'{k}': {v}")`,
+error:`nums = [1, 2, 3]\nprint("List:", nums)\nprint(nums[10])`,
+select:`arr = [64, 25, 12, 22, 11]\nn = len(arr)\nfor i in range(n):\n    min_idx = i\n    for j in range(i + 1, n):\n        if arr[j] < arr[min_idx]:\n            min_idx = j\n    arr[i], arr[min_idx] = arr[min_idx], arr[i]\nprint("Sorted:", arr)`,
+linear:`arr = [10, 25, 3, 47, 8, 15, 33]\ntarget = 47\nfor i in range(len(arr)):\n    if arr[i] == target:\n        print("Found at index", i)\n        break`,
+queue:`from collections import deque\nq = deque()\nq.append(10)\nq.append(20)\nq.append(30)\nprint(list(q))\nfront = q.popleft()\nprint("Dequeued:", front)\nprint(list(q))`,
+linkedlist:`class Node:\n    def __init__(self, data):\n        self.data = data\n        self.next = None\nhead = Node(10)\nhead.next = Node(20)\nhead.next.next = Node(30)\ncurrent = head\nwhile current:\n    print(current.data)\n    current = current.next`,
+bst:`class BST:\n    def insert(self, root, val):\n        if not root:\n            return {"val": val, "left": None, "right": None}\n        if val < root["val"]:\n            root["left"] = self.insert(root["left"], val)\n        else:\n            root["right"] = self.insert(root["right"], val)\n        return root\nt = BST()\nroot = None\nfor v in [5, 3, 7, 1, 4, 6, 8]:\n    root = t.insert(root, v)\nprint("BST built")`,
+array:`arr = [10, 20, 30, 40, 50]\nprint("Original:", arr)\narr.append(60)\nprint("After append:", arr)\narr.insert(2, 25)\nprint("After insert:", arr)\nremoved = arr.pop(3)\nprint("Removed:", removed)\nprint("Final:", arr)`,
+login:`username = "admin"\npassword = "1234"\notp = 5678\nentered_otp = 5678\nif username == "admin":\n    if password == "1234":\n        if entered_otp == otp:\n            print("Login Successful")\n        else:\n            print("Invalid OTP")\n    else:\n        print("Wrong Password")\nelse:\n    print("User not found")`,
+traffic:`signal = "red"\nemergency = True\nif emergency:\n    print("Allow passage (Emergency)")\nelse:\n    if signal == "red":\n        print("Stop")\n    elif signal == "yellow":\n        print("Wait")\n    elif signal == "green":\n        print("Go")`,
+discount:`amount = 1200\nis_member = True\ncoupon = True\nif amount > 1000:\n    discount = 20\nelif amount > 500:\n    discount = 10\nelse:\n    discount = 5\nif is_member:\n    discount += 5\nif coupon:\n    discount += 10\nfinal_price = amount - (amount * discount / 100)\nprint("Final Price:", final_price)`,
+student:`marks = 82\nattendance = 78\nsports = True\nif marks >= 90:\n    grade = "A"\nelif marks >= 75:\n    if attendance >= 75:\n        grade = "B+"\n    else:\n        grade = "B"\nelif marks >= 60:\n    grade = "C"\nelse:\n    grade = "Fail"\nif sports and grade != "Fail":\n    grade += " (Sports Bonus)"\nprint("Final Grade:", grade)`,
+banking:`balance = 5000\nwithdraw = 2000\npin_correct = True\nif pin_correct:\n    if withdraw <= balance:\n        if withdraw % 100 == 0:\n            balance -= withdraw\n            print("Withdraw successful, Balance:", balance)\n        else:\n            print("Enter amount in multiples of 100")\n    else:\n        print("Insufficient balance")\nelse:\n    print("Invalid PIN")`,
+game:`health = 40\nenemy_near = True\nhas_weapon = False\nif health < 50:\n    if enemy_near:\n        if has_weapon:\n            print("Fight")\n        else:\n            print("Run")\n    else:\n        print("Heal")\nelse:\n    print("Explore")`
+};
+
+window.onload = () => { onEdit(); };
+
+function loadQ(k) {
+  document.getElementById('ed').value = QS[k] || '';
+  onEdit();
+}
+function onEdit() {
+  const ed = document.getElementById('ed');
+  const lines = ed.value.split('\n');
+  document.getElementById('lns').innerHTML = lines.map((_,i) => `<div style="line-height:1.65">${i+1}</div>`).join('');
+  document.getElementById('linecount').textContent = lines.filter(l=>l.trim()).length + ' lines';
+  
+  const c = ed.value;
+  const cl = c.toLowerCase();
+  let det = 'detecting…';
+
+  // Priority detection for Arrays
+  if (/\.(append|pop|insert|extend|remove)\(/.test(c)) det = '🔵 Array Operations';
+  else if (/arr\[j\].*arr\[j.*1\]|bubble/.test(cl)) det = '🔵 Bubble Sort';
+  else if (/key\s*=\s*arr\[i\]|insertion/.test(cl)) det = '🟠 Insertion Sort';
+  else if (/min_idx|selection/.test(cl)) det = '🔴 Selection Sort';
+  else if (/binary_search|arr\[mid\]/.test(cl)) det = '🟣 Binary Search';
+  else if (/linear_search|for.*len.*arr.*if.*arr\[i\]/s.test(cl)) det = '🔵 Linear Search';
+  else if (/def.*\(n\).*if.*n.*<=.*1|factorial|fibonacci|fib\(n-/s.test(cl)) det = '🔴 Recursion';
+  else if (/class\s+node|\.next\s*=/.test(cl)) det = '🟣 Linked List';
+  else if (/deque|popleft/.test(cl)) det = '🔵 Queue';
+  else if (/stack\s*=\s*\[\]|\.append.*\.pop\(\)/.test(cl)) det = '🟢 Stack';
+  else if (/print.*\*|for.*range.*for.*range.*print/s.test(cl)) det = '🟣 Pattern';
+  else if (/for.*range|while/.test(cl) && !/def /.test(cl)) det = '🔵 Loop';
+  else if (/\bif\b/.test(cl) && !/def /.test(cl)) det = '🟡 Conditions';
+  else if (!/def /.test(cl) && cl.trim()) det = '🔵 Variables';
+  
+  const el = document.getElementById('detected');
+  el.textContent = det;
+  el.className = 'tag' + (det !== 'detecting…' ? ' active' : '');
+}
+function syncScroll() { document.getElementById('lns').scrollTop = document.getElementById('ed').scrollTop; }
+
+const TABNAMES = ['anim','trace','out'];
+function goTab(n) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', TABNAMES[i]===n));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.getElementById('panel-'+n).classList.add('on');
+}
+
+async function doAnalyze() {
+  const code = document.getElementById('ed').value.trim();
+  if (!code) { toast('Write some code first', 'err'); return; }
+  document.getElementById('abtn').disabled = true;
+  (document.getElementById('abtn')||{textContent:''}).textContent = 'Analyzing…';
+  try {
+    const [traceRes, runRes] = await Promise.all([
+      post('/trace', {code}).catch(() => ({steps:[]})),
+      post('/run', {code}).catch(() => ({stdout:'',stderr:''}))
+    ]);
+    await buildAnimation(code, traceRes.steps || [], runRes.stdout || '', runRes.stderr || '');
+    goTab('anim');
+    toast('Animation ready — click ▶ Play');
+  } catch(e) { toast(e.message, 'err'); }
+  finally {
+    document.getElementById('abtn').disabled = false;
+    (document.getElementById('abtn')||{textContent:''}).textContent = '▶ Analyze';
+  }
+}
+
+async function runOutput() {
+  const code = document.getElementById('ed').value.trim();
+  if (!code) return;
+  goTab('out');
+  try {
+    const r = await post('/run', {code});
+    const box = document.getElementById('outresult');
+    if (r.stderr && !r.stdout) {
+      box.className = 'outbox err';
+      box.textContent = r.stderr;
+    } else {
+      box.className = 'outbox ok';
+      box.textContent = r.stdout || '(no output)';
+      if (r.stderr) box.textContent += '\n--- stderr ---\n' + r.stderr;
+    }
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function buildAnimation(code, tSteps, stdout, stderr) {
+  window._currentCode = code; 
+  const userSteps = tSteps.filter(s => s.event === 'line' && s.line_text);
+
+  let type = 'GENERAL';
+  const c = code.toLowerCase();
+  const hasDef = /def /.test(code);
+  const isTrueRecursion = (()=>{
+    const codeLines = code.split('\n');
+    for(let li=0;li<codeLines.length;li++){
+      const dm = codeLines[li].match(/^(\s*)def\s+(\w+)\s*\(/);
+      if(!dm) continue;
+      const fnName=dm[2], baseIndent=dm[1].length;
+      const bodyLines=[];
+      for(let bi=li+1;bi<codeLines.length;bi++){
+        const bl=codeLines[bi];
+        if(!bl.trim()) continue;
+        const blIndent=bl.length-bl.trimStart().length;
+        if(blIndent<=baseIndent) break;
+        bodyLines.push(bl);
+      }
+      const body=bodyLines.join('\n');
+      if(new RegExp('\\b'+fnName+'\\s*\\(').test(body)) return true;
+    }
+    return false;
+  })();
+
+  if (/arr\[j\].*arr\[j.*1\]|bubble/.test(c)) type = 'BUBBLE';
+  else if (/key\s*=\s*arr\[i\]/.test(c)) type = 'INSERT';
+  else if (/min_idx/.test(c)) type = 'SELECT';
+  else if (/binary_search|arr\[mid\]|left.*right.*mid/.test(c)) type = 'BINARY';
+  else if (/linear_search/.test(c) || (/target\s*=/.test(c) && /for.*range/.test(c) && /arr\[i\]\s*==/.test(c))) type = 'LINEAR';
+  else if (/class\s+bst|root\["left"\]|root\["right"\]/.test(c)) type = 'BST';
+  else if (/class\s+node|\.next\s*=/.test(c)) type = 'LL';
+  else if (isTrueRecursion) type = 'RECURSION';
+  // 1. ARRAY DETECTION (Highest Priority for lists)
+  if (/\.(append|pop|insert|extend|remove|sort|reverse)\(/.test(code) || (code.includes('= [') && !code.includes('def '))) {
+    type = 'ARRAY';
+  } 
+  // 2. DATA STRUCTURES
+  else if (/deque|popleft/.test(c)) type = 'QUEUE';
+  else if (/stack\s*=\s*\[\]/.test(c) && (/\.append/.test(c) || /\.pop\(\)/.test(c))) type = 'STACK';
+  
+  // 3. ALGORITHMS & MATH
+  else if (/freq\s*=\s*\{\}|for.*ch.*in/s.test(c)) type = 'STRING';
+  else if (/is_prime|n\s*%\s*i/.test(c)) type = 'PRIME';
+  else if (/gcd|a\s*,\s*b\s*=\s*b\s*,\s*a\s*%\s*b/.test(c)) type = 'GCD';
+  
+  // 4. LOGIC & ERRORS
+  else if (stderr && stderr.includes('Error')) type = 'ERROR';
+  else if (/for.*range.*for.*range.*print|print.*\*/.test(c)) type = 'PATTERN';
+  else if (hasDef && (/for.*range|while/.test(c))) type = 'FUNC_LOOP';
+  else if (/for.*range|while/.test(c) && !hasDef) type = 'LOOP';
+  else if (/\bif\b/.test(c) && !hasDef && !/for\s|while\s/.test(c)) type = 'COND';
+  
+  // 5. CATCH-ALL FOR SIMPLE ASSIGNMENTS
+  else if (!hasDef && code.trim()) type = 'VARS';
+
+  VA.type = type; VA.steps = []; VA.idx = 0; VA.paused = false;
+
+  const CONFIGS = {
+    BUBBLE: {label:'BUBBLE SORT', color:'#f59e0b', title:'Bubble Sort — adjacent elements swap', legend:[['compare','Comparing'],['swap','Swapping ↔'],['sorted','Sorted ✓'],['normal','Unsorted']]},
+    INSERT: {label:'INSERTION SORT', color:'#f97316', title:'Insertion Sort — pick, lift, find place, insert', legend:[['lifted','Key (lifted)'],['shifting','Shifting right'],['inserting','Inserted ✓'],['sorted','Sorted']]},
+    SELECT: {label:'SELECTION SORT', color:'#ec4899', title:'Selection Sort — find minimum, swap to front', legend:[['minmark','Min found'],['scan','Scanning'],['swap','Swapping'],['sorted','Sorted ✓']]},
+    LINEAR:{label:'LINEAR SEARCH', color:'#3b82f6', title:'Linear Search — check every element', legend:[['scan','Checking'],['skip','Checked'],['found','Found! ✓'],['normal','Not yet']]},
+    BINARY:{label:'BINARY SEARCH', color:'#8b5cf6', title:'Binary Search — halve search space each step', legend:[['mid','Middle'],['inrange','Search range'],['elim','Eliminated'],['found','Found! ✓']]},
+    RECURSION:{label:'RECURSION', color:'#ef4444', title:'Recursion — watch the call stack', legend:[['rcall','Active call'],['rbase','Base case'],['rret','Returning']]},
+    LL:{label:'LINKED LIST', color:'#ec4899', title:'Linked List — nodes & next pointers', legend:[['llh','Head'],['lla','Current'],['lln','Node']]},
+    STACK:{label:'STACK (LIFO)', color:'#10b981', title:'Stack — Last In First Out', legend:[['spush','Push'],['spop','Pop'],['sn','In stack']]},
+    QUEUE:{label:'QUEUE (FIFO)', color:'#06b6d4', title:'Queue — First In First Out', legend:[['qenq','Enqueue'],['qdeq','Dequeue'],['qn','In queue']]},
+    STRING:{label:'STRING', color:'#f59e0b', title:'String — character frequency count', legend:[['sca','Processing'],['scd','Counted'],['scn','Waiting']]},
+    PRIME:{label:'PRIME CHECK', color:'#10b981', title:'Prime — trial division up to √n', legend:[['dtest','Testing'],['dfail','Not divisor'],['dwin','Divides!']]},
+    GCD:{label:'GCD', color:'#3b82f6', title:'GCD — Euclidean algorithm', legend:[]},
+    ERROR:{label:'ERROR', color:'#ef4444', title:'Runtime error visualization', legend:[]},
+    PATTERN:{label:'PATTERN', color:'#8b5cf6', title:'Pattern — builds row by row', legend:[]},
+    LOOP:{label:'LOOP', color:'#8b5cf6', title:'Loop — iteration progress', legend:[]},
+    FUNC_LOOP:{label:'FUNCTION + LOOP', color:'#14b8a6', title:'Function with loop — step through execution', legend:[]},
+    COND:{label:'CONDITIONS', color:'#f59e0b', title:'If/Elif/Else — flowchart decision flow', legend:[['cblock testing','Testing now'],['cblock taken','Branch taken'],['cblock failed','Skipped']]},
+    VARS:{label:'VARIABLES', color:'#3b82f6', title:'Variables — types & values', legend:[]},
+    BST:{label:'BINARY SEARCH TREE', color:'#8b5cf6', title:'BST — smaller→left, larger→right', legend:[]},
+    ARRAY:{label:'ARRAY', color:'#3b82f6', title:'Array — watch each operation', legend:[['active','Current index'],['sorted','Modified'],['normal','Element']]},
+    GENERAL:{label:'CODE', color:'#8892a4', title:'Code execution', legend:[]}
+  };
+
+  const cfg = CONFIGS[type] || CONFIGS.GENERAL;
+  const tag = document.getElementById('typetag');
+  tag.textContent = cfg.label;
+  tag.style.cssText = `font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid ${cfg.color};color:${cfg.color};letter-spacing:.5px`;
+  document.getElementById('stagemsg').textContent = cfg.title;
+  const _sm=document.getElementById('stagemsg');if(_sm)_sm.textContent='';
+  (document.getElementById('stagelegend')||{innerHTML:''}).innerHTML = cfg.legend.map(([cls,lbl])=>
+    `<div class="leg-item"><div class="leg-dot el sm ${cls}" style="width:12px;height:12px;border-radius:3px;transform:none!important;box-shadow:none!important;display:inline-block;position:static;flex-shrink:0"></div>${lbl}</div>`
+  ).join('');
+
+  if (type === 'BUBBLE') bldBubble(extractArr(code)||[64,34,25,12,22,11,90]);
+  else if (type === 'INSERT') bldInsert(extractArr(code)||[12,11,13,5,6]);
+  else if (type === 'SELECT') bldSelect(extractArr(code)||[64,25,12,22,11]);
+  else if (type === 'BINARY') bldBinary(code, tSteps);
+  else if (type === 'LINEAR') bldLinearFull(code, tSteps);
+  else if (type === 'RECURSION') bldRecursion(tSteps, code);
+  else if (type === 'LL') bldLL(tSteps, code);
+  else if (type === 'STACK') bldStack(userSteps);
+  else if (type === 'QUEUE') bldQueue(userSteps);
+  else if (type === 'STRING') bldString(code, userSteps);
+  else if (type === 'PRIME') bldPrime(code, userSteps);
+  else if (type === 'GCD') bldGCD(userSteps);
+  else if (type === 'ERROR') bldError(code, tSteps, stderr);
+  else if (type === 'PATTERN') { VA._patSteps = tSteps; bldPattern(stdout, code); }
+  else if (type === 'LOOP') bldLoop(userSteps);
+  else if (type === 'FUNC_LOOP') bldFuncLoop(tSteps, code);
+  else if (type === 'COND') bldCond(code, tSteps);
+  else if (type === 'VARS') bldVars(userSteps);
+  else if (type === 'BST') bldBST(code, tSteps); 
+  else if (type === 'ARRAY') bldArray(tSteps, code);
+  else bldGeneral(userSteps);
+
+  if (VA.steps.length) renderStep();
+}
+
+function bldBubble(arr){
+  const a=[...arr], n=a.length, steps=[];
+  steps.push({arr:[...a], states:a.map(()=>'normal'), watch:{}, msg:'Bubble Sort starts', desc:`[${a.join(', ')}]`});
+  for(let i=0;i<n-1;i++){
+    for(let j=0;j<n-i-1;j++){
+      const st=a.map((_,k)=>k>=n-i?'sorted':'normal'); st[j]='compare'; st[j+1]='compare';
+      steps.push({arr:[...a],states:st,watch:{i,j,comparing:`${a[j]} vs ${a[j+1]}`},msg:`Compare [${j}]=${a[j]} and [${j+1}]=${a[j+1]}`,desc:`${a[j]>a[j+1]?'→ Swap needed!':'→ Already in order'}`});
+      if(a[j]>a[j+1]){
+        const st2=a.map((_,k)=>k>=n-i?'sorted':'normal'); st2[j]='swap'; st2[j+1]='swap';
+        steps.push({arr:[...a],states:st2,watch:{swapping:`${a[j]} ↔ ${a[j+1]}`},msg:`SWAP ${a[j]} ↔ ${a[j+1]}`,desc:'Exchanging positions'});
+        [a[j],a[j+1]]=[a[j+1],a[j]];
+        steps.push({arr:[...a],states:a.map((_,k)=>k>=n-i?'sorted':'normal'),watch:{},msg:`After swap`,desc:`[${a.join(', ')}]`});
+      }
+    }
+    steps.push({arr:[...a],states:a.map((_,k)=>k>=n-i-1?'sorted':'normal'),watch:{pass:i+1},msg:`Pass ${i+1} done — ${a[n-i-1]} is in place`,desc:`Sorted: [${a.slice(n-i-1).join(', ')}]`});
+  }
+  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'✓ Fully sorted!',desc:`Result: [${a.join(', ')}]`});
+  VA.steps=steps;
+}
+
+function bldInsert(arr){
+  const a=[...arr], n=a.length, steps=[];
+  steps.push({arr:[...a],states:a.map((_,i)=>i===0?'sorted':'normal'),watch:{},msg:'Insertion Sort — [0] already sorted',desc:`Key will shift left until in place`});
+  for(let i=1;i<n;i++){
+    const key=a[i];
+    steps.push({arr:[...a],states:a.map((_,k)=>k<i?'sorted':k===i?'lifted':'normal'),watch:{i,key},msg:`Pick key = ${key} at index [${i}]`,desc:`Lifting it up to find correct position`});
+    let j=i-1;
+    while(j>=0&&a[j]>key){
+      a[j+1]=a[j];
+      steps.push({arr:[...a],states:a.map((_,k)=>k<j?'sorted':k===j||k===j+1?'shifting':'normal'),watch:{key,j,shifting:a[j]},msg:`${a[j]} > ${key}: shift ${a[j]} right`,desc:`Moving [${j}]→[${j+1}]`});
+      j--;
+    }
+    a[j+1]=key;
+    const st=a.map((_,k)=>k<=i?'sorted':'normal'); st[j+1]='inserting';
+    steps.push({arr:[...a],states:st,watch:{key,inserted_at:j+1},msg:`Insert ${key} at [${j+1}] ✓`,desc:`Sorted: [${a.slice(0,i+1).join(', ')}]`});
+  }
+  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'✓ Fully sorted!',desc:`[${a.join(', ')}]`});
+  VA.steps=steps;
+}
+
+function bldSelect(arr){
+  const a=[...arr], n=a.length, steps=[];
+  steps.push({arr:[...a],states:a.map(()=>'normal'),watch:{},msg:'Selection Sort — find min each pass',desc:`[${a.join(', ')}]`});
+  for(let i=0;i<n-1;i++){
+    let mi=i;
+    steps.push({arr:[...a],states:a.map((_,k)=>k<i?'sorted':k===i?'minmark':'normal'),watch:{i,assumed_min:a[i]},msg:`Pass ${i+1}: assume [${i}]=${a[i]} is minimum`,desc:`Scan right for smaller`});
+    for(let j=i+1;j<n;j++){
+      const st=a.map((_,k)=>k<i?'sorted':k===mi?'minmark':k===j?'scan':'normal');
+      steps.push({arr:[...a],states:st,watch:{scanning:a[j],current_min:a[mi]},msg:`[${j}]=${a[j]} vs min ${a[mi]}?`,desc:a[j]<a[mi]?`New min = ${a[j]}`:`Keep min = ${a[mi]}`});
+      if(a[j]<a[mi]) mi=j;
+    }
+    if(mi!==i){
+      const st=a.map((_,k)=>k<i?'sorted':k===i||k===mi?'swap':'normal');
+      steps.push({arr:[...a],states:st,watch:{swapping:`[${i}]↔[${mi}]`},msg:`Swap min ${a[mi]} → position [${i}]`,desc:'Placing minimum correctly'});
+      [a[i],a[mi]]=[a[mi],a[i]];
+    }
+    steps.push({arr:[...a],states:a.map((_,k)=>k<=i?'sorted':'normal'),watch:{pass:i+1},msg:`[${i}]=${a[i]} in place ✓`,desc:`Sorted: [${a.slice(0,i+1).join(', ')}]`});
+  }
+  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'✓ Fully sorted!',desc:`[${a.join(', ')}]`});
+  VA.steps=steps;
+}
+
+function setView(html){
+  (document.getElementById('stageview')||{innerHTML:''}).innerHTML=html;
+  document.getElementById('stage').classList.add('active');
+}
+function setMsg(m,d){const _h=document.getElementById('stagehead');if(_h&&_h.children[0])_h.children[0].textContent=m||'';if(_h&&_h.children[1])_h.children[1].textContent=d||'';}
+
+function mkArr(arr,states,opts={}){
+  const{showIdx=true,highlight=-1,size=52}=opts;
+  return`<div class="arrrow" style="margin-bottom:${showIdx?'26px':'6px'}">${arr.map((v,i)=>{
+    const cls=states[i]||'normal';
+    return`<div class="el ${cls}" style="width:${size}px;height:${size}px;font-size:${size*0.34}px">${esc(v)}${showIdx?`<span class="idx">[${i}]</span>`:''}</div>`;
+  }).join('')}</div>`;}
+
+function mkWatch(vars,extra=''){
+  if(!vars||!Object.keys(vars).length) return extra;
+  const C={i:'var(--purple)',j:'var(--yellow)',key:'var(--green)',left:'var(--teal)',right:'var(--red)',mid:'var(--purple)',n:'var(--cyan)',target:'var(--orange)',k:'var(--pink)'};
+  return`<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px">${
+    Object.entries(vars).map(([k,v])=>`<div style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;text-align:center;min-width:56px">
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:3px">${esc(k)}</div>
+      <div style="font-size:17px;font-weight:700;font-family:var(--mono);color:${C[k]||'var(--cyan)'}">${esc(String(v))}</div>
+    </div>`).join('')
+  }</div>`+extra;}
+
+function mkExplain(text,color){
+  if(!text)return'';
+  const c=color||'var(--green)';
+  return`<div class="explain-box" style="background:${c}12;border-color:${c}44;color:${c}">${esc(text)}</div>`;
+}
+
+function mkOutput(out){
+  if(!out||!out.trim())return'';
+  return`<div class="output-box"><span class="output-label">OUTPUT →</span><span>${esc(out.trim())}</span></div>`;
+}
+
+function mkArr2(arr,states,opts){return mkArr(arr,states,opts);}
+function mkWatchRow(vars){return mkWatch(vars);}
+function parseArr(s){
+  if(!s)return[];
+  const m=s.match(/\[([^\]]*)\]/);
+  if(!m||!m[1].trim())return[];
+  return m[1].split(',').map(x=>x.trim()).filter(x=>x);
+}
+
+// ── BINARY SEARCH ────────────────────────────────────────────────────────
+function bldBinary(code, tSteps) {
+  const arr = extractArr(code) || [2, 5, 8, 12, 16, 23, 38, 56, 72, 91];
+  const tgtMatch = code.match(/target\s*=\s*(\d+)/) || code.match(/,\s*(\d+)\)/);
+  const target = tgtMatch ? parseInt(tgtMatch[1]) : 23;
+  const steps = []; 
+  let left = 0, right = arr.length - 1, pass = 0;
+  
+  steps.push({arr, states: arr.map(()=>'inrange'), left, right, mid: -1, target, pass: 0,
+    msg: `Binary Search for ${target}`, explain: `Array has ${arr.length} elements. We'll divide the search space in half each step.`});
+    
+  while (left <= right) {
+    pass++;
+    const mid = Math.floor((left + right) / 2);
+    const st = arr.map((_, k) => k < left || k > right ? 'elim' : k === mid ? 'mid' : 'inrange');
+    
+    steps.push({arr, states: st, left, right, mid, target, pass,
+      msg: `Step ${pass}: Check middle index [${mid}] = ${arr[mid]}`,
+      explain: `mid = (${left}+${right}) ÷ 2 = ${mid}. Is ${arr[mid]} === ${target}? ${arr[mid]===target ? 'YES! Found it!' : arr[mid]<target ? `No. ${arr[mid]} < ${target} → search RIGHT half` : `No. ${arr[mid]} > ${target} → search LEFT half`}`});
+      
+    if (arr[mid] === target) {
+      const sf = arr.map((_, k) => k === mid ? 'found' : k < left || k > right ? 'elim' : 'normal');
+      steps.push({arr, states: sf, left, right, mid, target, pass, foundAt: mid,
+        msg: `✓ Found ${target} at index [${mid}]!`, explain: `Found in ${pass} steps.`});
+      break;
+    } else if (arr[mid] < target) {
+      left = mid + 1;
+    } else {
+      right = mid - 1;
+    }
+    
+    if (left > right) {
+      steps.push({arr, states: arr.map(()=>'elim'), left, right, mid: -1, target, pass, foundAt: -1,
+        msg: `${target} not found`, explain: `Search space is empty. All elements eliminated.`});
+    }
+  }
+  VA.steps = steps;
+}
+
+function rndrBinary(s) {
+  const {arr, states, left, right, mid, target, foundAt, explain} = s;
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%">`;
+  html += `<div style="padding:4px 16px;border-radius:12px;background:rgba(139,92,246,.15);border:1px solid #8b5cf6;font-size:12px;font-weight:700;color:#c4b5fd;letter-spacing:1px">TARGET: ${target}</div>`;
+  html += mkArr2(arr, states);
+  html += `<div style="display:flex;gap:6px;margin-top:-20px;margin-bottom:10px">${arr.map((_, i) => {
+    const lbls = [];
+    if (i === mid && mid >= 0) lbls.push({t:'M', c:'#a78bfa'});
+    if (i === left && left !== right && i !== mid) lbls.push({t:'L', c:'#14b8a6'});
+    if (i === right && left !== right && i !== mid) lbls.push({t:'R', c:'#f87171'});
+    if (i === left && i === right) lbls.push({t:'L=R', c:'#fbbf24'});
+    return lbls.length ? `<div style="width:52px;text-align:center"><div style="font-size:9px;font-weight:700;color:${lbls[0].c};font-family:var(--mono)">${lbls.map(l=>l.t).join('/')}</div><div style="font-size:13px;color:${lbls[0].c}">▲</div></div>` : `<div style="width:52px"></div>`;
+  }).join('')}</div>`;
+  const wv = {target}; if(left >= 0) wv.left = left; if(right >= 0) wv.right = right; if(mid >= 0) wv.mid = mid;
+  html += mkWatchRow(wv);
+  html += mkExplain(explain, foundAt >= 0 ? '#10b981' : '#8b5cf6');
+  html += `</div>`;
+  setView(html);
+}
+
+// ── LINEAR SEARCH ────────────────────────────────────────────────────────
+function bldLinearFull(code, tSteps) {
+  const arr = extractArr(code) || [10, 25, 3, 47, 8, 15, 33];
+  const tgtMatch = code.match(/target\s*=\s*(\d+)/) || code.match(/==\s*(\d+)/);
+  const target = tgtMatch ? parseInt(tgtMatch[1]) : 47;
+  
+  const steps = []; 
+  const checked = [];
+  steps.push({arr, ptr:-1, checked:[], target, foundAt:-1, comparing:null,
+    msg:`Linear Search for ${target}`,
+    explain:`We check each element one by one. If arr[i] == target, we found it!`});
+
+  const iSteps = tSteps.filter(s => s.event==='line' && s.variables && s.variables.i !== undefined);
+  
+  if (iSteps.length) {
+    iSteps.forEach(s => {
+      const i = parseInt(s.variables.i); if(isNaN(i)) return;
+      const val = arr[i]; if(val === undefined) return;
+      const match = val === target;
+      if (!checked.includes(i)) checked.push(i);
+      
+      steps.push({arr, ptr:i, checked:[...checked], target, foundAt: match ? i : -1, comparing:{i, val, target, match},
+        msg: match ? `✓ Found ${target} at index [${i}]!` : `arr[${i}] = ${val} ≠ ${target}`,
+        explain: match ? `YES! arr[${i}] = ${target}. Target found.` : `arr[${i}] = ${val}. Move to next.`});
+      if (match) return;
+    });
+  } else {
+    for (let i = 0; i < arr.length; i++) {
+      checked.push(i);
+      const match = arr[i] === target;
+      steps.push({arr, ptr:i, checked:[...checked], target, foundAt: match ? i : -1, comparing:{i, val:arr[i], target, match},
+        msg: match ? `✓ Found ${target} at [${i}]!` : `arr[${i}] = ${arr[i]} ≠ ${target}`,
+        explain: match ? `Found! arr[${i}] = ${arr[i]}.` : `${arr[i]} ≠ ${target}. Next index.`});
+      if (match) break;
+    }
+  }
+  VA.steps = steps;
+}
+
+function rndrLinear(s) {
+  const {arr, ptr, checked, target, foundAt, comparing, explain} = s;
+  const states = arr.map((_, i) => i === foundAt ? 'found' : i === ptr ? 'scan' : checked.includes(i) && i !== ptr ? 'skip' : 'normal');
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%">`;
+  html += `<div style="padding:4px 16px;border-radius:12px;background:rgba(59,130,246,.15);border:1px solid #3b82f6;font-size:12px;font-weight:700;color:#93c5fd;letter-spacing:1px">TARGET: ${target}</div>`;
+  html += mkArr2(arr, states);
+  html += `<div style="display:flex;gap:6px;margin-top:-20px;margin-bottom:10px">${arr.map((_, i) => `<div style="width:52px;text-align:center;font-size:20px;color:#fbbf24;opacity:${i === ptr ? 1 : 0};transition:all .25s">▲</div>`).join('')}</div>`;
+  
+  if (comparing && ptr >= 0) {
+    const {i, val, match} = comparing;
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:10px;background:${match ? 'rgba(16,185,129,.12)' : 'rgba(245,158,11,.08)'};border:2px solid ${match ? '#10b981' : '#f59e0b'}">
+      <div style="text-align:center"><div style="font-size:10px;color:var(--muted)">arr[${i}]</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:${match ? '#34d399' : '#fbbf24'}">${esc(String(val))}</div></div>
+      <div style="font-size:18px;font-weight:700;color:${match ? '#34d399' : '#f87171'};font-family:var(--mono)">${match ? '==' : '≠'}</div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--muted)">target</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:#a78bfa">${esc(String(target))}</div></div>
+      <div style="font-size:22px">${match ? '✅' : '❌'}</div>
+    </div>`;
+  }
+  html += mkExplain(explain, foundAt >= 0 ? '#10b981' : '#3b82f6');
+  html += `</div>`;
+  setView(html);
+}
+// ── STACK ────────────────────────────────────────────────────────────────
+function bldStack(tSteps){
+  const steps=[]; let stk=[];
+  steps.push({stk:[],event:'none',msg:'Stack — LIFO: Last In, First Out',explain:'A stack is like a pile of plates. You can only add/remove from the TOP.'});
+  tSteps.forEach(s=>{
+    if(s.event!=='line'||!s.line_text) return;
+    const sv=s.variables||{};
+    const stackKey=Object.keys(sv).find(k=>sv[k].startsWith('[')||(sv[k]==='[]'));
+    if(!stackKey) return;
+    const raw=sv[stackKey].replace(/[\[\] ]/g,'').split(',').map(x=>x.trim()).filter(x=>x);
+    const event=raw.length>stk.length?'push':raw.length<stk.length?'pop':'same';
+    const prev=[...stk]; stk=[...raw];
+    if(event==='push'){
+      const val=stk[stk.length-1];
+      steps.push({stk:[...stk],event,pushed:val,msg:`PUSH ${val} onto stack`,explain:`stack.append(${val}) — ${val} goes on TOP. Stack is now [${stk.join(', ')}]`,output:s.output});
+    } else if(event==='pop'){
+      const val=prev[prev.length-1];
+      steps.push({stk:[...stk],event,popped:val,msg:`POP → removes ${val} from top`,explain:`stack.pop() — removes TOP element (${val}). Stack is now [${stk.join(', ')||'empty'}]`,output:s.output});
+    } else if(s.output){
+      steps.push({stk:[...stk],event:'same',msg:`Stack: [${stk.join(', ')}]`,explain:`Stack contents printed.`,output:s.output});
+    }
+  });
+  if(steps.length<=1) steps.push({stk:['10','20','30'],event:'none',msg:'Stack example',explain:'Use stack.append() to push, stack.pop() to pop.'});
+  VA.steps=steps;
+}
+
+function rndrStack(s){
+  const{stk=[],event,pushed,popped,output,explain}=s;
+  const rev=[...stk].reverse();
+  let html=`<div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 11px;border-radius:12px;background:rgba(16,185,129,.1);border:1px solid #10b981;color:#34d399;font-weight:700;font-size:11px">LIFO</span><span style="color:var(--muted);font-size:12px">Last In → First Out</span></div>
+    ${event==='push'?`<div style="font-size:13px;color:#34d399;font-weight:600">↓ PUSH ${esc(String(pushed||''))}</div>`:''}
+    ${event==='pop'?`<div style="font-size:13px;color:#f87171;font-weight:600">↑ POP → ${esc(String(popped||''))}</div>`:''}
+    <div style="text-align:center;font-size:10px;color:var(--muted);font-family:var(--mono)">TOP ▼</div>
+    <div style="display:flex;flex-direction:column;gap:4px;min-height:60px">${
+      rev.length?rev.map((v,i)=>{
+        const isTop=i===0; const isNew=isTop&&event==='push'; const isPop=isTop&&event==='pop';
+        const bc=isNew?'#10b981':isPop?'#f87171':'rgba(59,130,246,.4)';
+        const bg=isNew?'rgba(16,185,129,.18)':isPop?'rgba(239,68,68,.18)':'rgba(59,130,246,.1)';
+        const tc=isNew?'#34d399':isPop?'#f87171':'#67e8f9';
+        return`<div style="width:140px;padding:9px 0;border-radius:8px;text-align:center;font-family:var(--mono);font-size:17px;font-weight:700;border:2px solid ${bc};background:${bg};color:${tc};display:flex;align-items:center;justify-content:center;gap:6px">${isTop?`<span style="font-size:9px;opacity:.7">TOP</span>`:''}${esc(v)}</div>`;
+      }).join(''):
+      `<div style="padding:14px 40px;border:2px dashed var(--border2);border-radius:8px;color:var(--dim);font-family:var(--mono);text-align:center">[ empty ]</div>`
+    }</div>
+    <div style="text-align:center;font-size:10px;color:var(--dim);font-family:var(--mono)">BOTTOM ▲</div>
+    ${mkExplain(explain,'#10b981')}${mkOutput(output)}
+  </div>`;
+  setView(html);
+}
+
+// ── QUEUE ────────────────────────────────────────────────────────────────
+function bldQueue(tSteps){
+  const steps=[]; let q=[];
+  steps.push({q:[],event:'none',msg:'Queue — FIFO: First In, First Out',explain:'Like a line at a shop. First person in = first person served. Enqueue at REAR, Dequeue from FRONT.'});
+  tSteps.forEach(s=>{
+    if(s.event!=='line'||!s.line_text) return;
+    const sv=s.variables||{};
+    const qKey=Object.keys(sv).find(k=>sv[k].startsWith('deque('));
+    if(!qKey) return;
+    const raw=sv[qKey].replace(/deque\(\[|\]\)/g,'').split(',').map(x=>x.trim()).filter(x=>x);
+    const event=raw.length>q.length?'enq':raw.length<q.length?'deq':'same';
+    const prev=[...q]; q=[...raw];
+    if(event==='enq'){
+      const val=q[q.length-1];
+      steps.push({q:[...q],event,enqueued:val,msg:`ENQUEUE ${val} at REAR`,explain:`q.append(${val}) — ${val} joins at the REAR. Queue: [${q.join(' → ')}]`,output:s.output});
+    } else if(event==='deq'){
+      const val=prev[0];
+      steps.push({q:[...q],event,dequeued:val,msg:`DEQUEUE → removes ${val} from FRONT`,explain:`q.popleft() — FRONT element (${val}) leaves first. Queue: [${q.join(' → ')||'empty'}]`,output:s.output});
+    } else if(s.output){
+      steps.push({q:[...q],event:'same',msg:`Queue: [${q.join(' → ')}]`,explain:'Queue contents.',output:s.output});
+    }
+  });
+  if(steps.length<=1) steps.push({q:['10','20','30'],event:'none',msg:'Queue example',explain:'Use q.append() to enqueue, q.popleft() to dequeue.'});
+  VA.steps=steps;
+}
+
+function rndrQueue(s){
+  const{q=[],event,enqueued,dequeued,output,explain}=s;
+  let html=`<div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px"><span style="padding:3px 11px;border-radius:12px;background:rgba(6,182,212,.1);border:1px solid #06b6d4;color:#67e8f9;font-weight:700;font-size:11px">FIFO</span><span style="color:var(--muted);font-size:12px">First In → First Out</span></div>
+    ${event==='enq'?`<div style="font-size:13px;color:#34d399;font-weight:600">→ ENQUEUE ${esc(String(enqueued||''))} at REAR</div>`:''}
+    ${event==='deq'?`<div style="font-size:13px;color:#f87171;font-weight:600">← DEQUEUE ${esc(String(dequeued||''))} from FRONT</div>`:''}
+    <div style="display:flex;align-items:center;gap:2px">
+      <div style="color:#14b8a6;font-size:12px;font-weight:700;margin-right:4px;text-align:center">FRONT<br>→</div>
+      ${q.length?q.map((v,i)=>{
+        const isFirst=i===0&&event==='deq'; const isLast=i===q.length-1&&event==='enq';
+        const bc=isFirst?'#f87171':isLast?'#10b981':'rgba(59,130,246,.4)';
+        const tc=isFirst?'#f87171':isLast?'#34d399':'#67e8f9';
+        return`<div style="display:flex;align-items:center"><div style="width:54px;height:54px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:16px;font-weight:700;border:2px solid ${bc};background:${bc}18;color:${tc}">${esc(v)}</div>${i<q.length-1?`<div style="color:var(--dim);font-size:18px;width:16px;text-align:center">→</div>`:''}</div>`;
+      }).join(''):`<div style="padding:14px 28px;border:2px dashed var(--border2);border-radius:8px;color:var(--dim);font-family:var(--mono)">[ empty ]</div>`}
+      <div style="color:#ef4444;font-size:12px;font-weight:700;margin-left:4px;text-align:center">←<br>REAR</div>
+    </div>
+    ${mkExplain(explain,'#06b6d4')}${mkOutput(output)}
+  </div>`;
+  setView(html);
+}
+
+// ── LINKED LIST ───────────────────────────────────────────────────────────
+function bldLL(tSteps, code){
+  const nodeVals=[...code.matchAll(/Node\((\d+)\)/g)].map(m=>m[1]);
+  const steps=[];
+  if(!nodeVals.length) nodeVals.push('10','20','30');
+  steps.push({nodes:nodeVals,cur:null,msg:'Linked List — each node holds data + a pointer',explain:`${nodeVals.length} nodes: ${nodeVals.join(' → ')} → NULL. Each node points to the NEXT node in the chain.`});
+  const visited=[];
+  tSteps.forEach(s=>{
+    if(s.event!=='line'||!s.line_text) return;
+    const cur=s.variables?.current||'';
+    if(cur&&cur!=='None'&&!cur.startsWith('<class')){
+      if(s.output&&s.output.trim()){
+        const val=s.output.trim();
+        if(!visited.includes(val)) visited.push(val);
+        steps.push({nodes:nodeVals,cur:val,visited:[...visited],
+          msg:`Visiting node with data = ${val}`,
+          explain:`current.data = ${val}. Print it. Then current = current.next → move to next node.`,output:s.output});
+      }
+    } else if(cur==='None'&&visited.length>0){
+      steps.push({nodes:nodeVals,cur:null,visited:[...visited],
+        msg:`current = None → traversal complete`,explain:`We've visited all ${visited.length} nodes: ${visited.join(' → ')}. current.next was None, so we stop.`});
+    }
+  });
+  if(steps.length<=1){
+    nodeVals.forEach((v,i)=>{
+      steps.push({nodes:nodeVals,cur:v,visited:nodeVals.slice(0,i+1),msg:`Visiting node ${v}`,explain:`current.data = ${v}. Next: ${nodeVals[i+1]||'NULL'}`});
+    });
+    steps.push({nodes:nodeVals,cur:null,visited:[...nodeVals],msg:'Traversal complete',explain:`Visited all nodes: ${nodeVals.join(' → ')} → NULL`});
+  }
+  VA.steps=steps;
+}
+
+function rndrLL(s){
+  const{nodes=[],cur,visited=[],output,explain}=s;
+  let html=`<div style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%"><div style="display:flex;align-items:center;flex-wrap:wrap;gap:0;padding:8px 0">`;
+  nodes.forEach((v,i)=>{
+    const isHead=i===0; const isCur=v===cur; const isVis=visited.includes(v)&&!isCur;
+    const bc=isCur?'#8b5cf6':isHead?'#14b8a6':isVis?'rgba(16,185,129,.4)':'rgba(59,130,246,.4)';
+    const bg=isCur?'rgba(139,92,246,.2)':isHead?'rgba(20,184,166,.15)':isVis?'rgba(16,185,129,.08)':'rgba(59,130,246,.08)';
+    const tc=isCur?'#c4b5fd':isHead?'#2dd4bf':isVis?'rgba(16,185,129,.7)':'#67e8f9';
+    html+=`<div style="display:flex;align-items:center"><div style="width:68px;height:58px;border-radius:9px;border:2px solid ${bc};background:${bg};display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;transition:all .3s;${isCur?'transform:translateY(-10px);box-shadow:0 8px 24px '+bc+'44;':''}">
+      ${isHead?`<div style="position:absolute;top:-16px;font-size:9px;font-weight:700;color:#2dd4bf;font-family:var(--mono)">HEAD</div>`:''}
+      ${isCur?`<div style="position:absolute;top:-16px;font-size:9px;font-weight:700;color:#a78bfa;font-family:var(--mono)">cur</div>`:''}
+      <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${tc}">${esc(v)}</div>
+      <div style="font-size:9px;color:var(--dim)">→next</div>
+    </div><div style="width:28px;display:flex;align-items:center;justify-content:center;color:${isCur?'#a78bfa':'var(--dim)'};font-size:${isCur?20:16}px">→</div></div>`;
+  });
+  html+=`<div style="width:54px;height:54px;border-radius:9px;border:2px dashed var(--border2);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px;font-family:var(--mono)">NULL</div></div>`;
+  html+=mkExplain(explain,'#ec4899')+mkOutput(output)+'</div>';
+  setView(html);
+}
+
+// ── BINARY SEARCH TREE ───────────────────────────────────────────────────
+function bldBST(code, tSteps){
+  const vals = [];
+  const match = code.match(/\[([\d\s,]+)\]/);
+  if(match) {
+    match[1].split(',').forEach(v => { 
+      if(!isNaN(parseInt(v))) vals.push(parseInt(v.trim())); 
+    });
+  }
+  if(!vals.length) vals.push(5,3,7,1,4,6,8);
+  const steps=[]; const nodeList=[]; const edgeList=[];
+  steps.push({nodes:[],edges:[],inserting:null,comparing:null,
+    msg:'Binary Search Tree',explain:'Left < Parent < Right. Smaller values go left, larger go right.'});
+  function ins(pid,val,side){
+    const id=nodeList.length;
+    nodeList.push({id,val,parentId:pid,side,justInserted:false,leftId:undefined,rightId:undefined});
+    if(pid!==null&&pid!==undefined&&side){
+      edgeList.push({from:pid,to:id,side});
+      if(side==='left') nodeList[pid].leftId=id;
+      else nodeList[pid].rightId=id;
+    }
+    return id;
+  }
+  let rootId=null;
+  vals.forEach(val=>{
+    steps.push({nodes:[...nodeList],edges:[...edgeList],inserting:val,comparing:null,
+      msg:'Insert '+val,explain:'Adding '+val+'. Go left if smaller, right if larger.'});
+    if(rootId===null){
+      rootId=ins(null,val,null);nodeList[rootId].justInserted=true;
+      steps.push({nodes:[...nodeList],edges:[...edgeList],inserting:null,comparing:null,
+        msg:val+' = ROOT',explain:'First node becomes the root.'});
+    } else {
+      let cur=rootId; let done=false;
+      while(!done){
+        const curN=nodeList[cur]; const goLeft=val<curN.val;
+        steps.push({nodes:[...nodeList],edges:[...edgeList],inserting:val,comparing:cur,
+          msg:val+(goLeft?' < ':' ≥ ')+curN.val+' → go '+(goLeft?'LEFT':'RIGHT'),
+          explain:val+(goLeft?' < ':' ≥ ')+curN.val+' → follow '+(goLeft?'left':'right')+' pointer'});
+        if(goLeft){
+          if(curN.leftId===undefined){const nid=ins(cur,val,'left');nodeList[nid].justInserted=true;done=true;}
+          else cur=curN.leftId;
+        } else {
+          if(curN.rightId===undefined){const nid=ins(cur,val,'right');nodeList[nid].justInserted=true;done=true;}
+          else cur=curN.rightId;
+        }
+      }
+      steps.push({nodes:[...nodeList],edges:[...edgeList],inserting:null,comparing:null,
+        msg:val+' inserted ✓',explain:'BST property maintained. Left < parent < right.'});
+    }
+    nodeList.forEach(n=>n.justInserted=false);
+  });
+  VA.steps=steps;
+}
+
+function rndrBST(s){
+  const{nodes=[],edges=[],inserting,comparing,explain}=s;
+  if(!nodes.length){setView(mkExplain(explain||'Building tree…','#8b5cf6'));return;}
+  const pos={};
+  function computePos(id,x,y,sp){
+    if(id===undefined||id===null) return;
+    pos[id]={x,y}; const n=nodes[id]; if(!n) return;
+    if(n.leftId!==undefined) computePos(n.leftId,x-sp,y+70,sp/2);
+    if(n.rightId!==undefined) computePos(n.rightId,x+sp,y+70,sp/2);
+  }
+  const root=nodes.find(n=>n.parentId===null||n.parentId===undefined);
+  if(!root){setView(mkExplain('Building…','#8b5cf6'));return;}
+  const maxSp=Math.max(60*Math.pow(2,Math.floor(Math.log2(nodes.length+1))-1),80);
+  computePos(root.id,0,0,maxSp);
+  const allX=Object.values(pos).map(p=>p.x); const allY=Object.values(pos).map(p=>p.y);
+  const minX=Math.min(...allX)-40; const maxX=Math.max(...allX)+40;
+  const minY=Math.min(...allY)-30; const maxY=Math.max(...allY)+40;
+  const W=Math.max(maxX-minX,200); const H=Math.max(maxY-minY,80);
+  let svg=`<svg width="100%" viewBox="${minX} ${minY} ${W} ${H}" style="max-height:300px">`;
+  edges.forEach(e=>{
+    const f=pos[e.from]; const t=pos[e.to]; if(!f||!t) return;
+    svg+=`<line x1="${f.x}" y1="${f.y+22}" x2="${t.x}" y2="${t.y-22}" stroke="#334155" stroke-width="2"/>`;
+  });
+  nodes.forEach(n=>{
+    const p=pos[n.id]; if(!p) return;
+    const isCmp=n.id===comparing; const isIns=n.justInserted;
+    const bc=isCmp?'#fbbf24':isIns?'#34d399':n.parentId===null||n.parentId===undefined?'#8b5cf6':'#3b82f6';
+    const bg=isCmp?'rgba(251,191,36,.2)':isIns?'rgba(52,211,153,.2)':n.parentId===null||n.parentId===undefined?'rgba(139,92,246,.2)':'rgba(59,130,246,.15)';
+    svg+=`<circle cx="${p.x}" cy="${p.y}" r="22" fill="${bg}" stroke="${bc}" stroke-width="2"/>`;
+    svg+=`<text x="${p.x}" y="${p.y+5}" text-anchor="middle" font-family="monospace" font-size="14" font-weight="bold" fill="${bc}">${n.val}</text>`;
+    if(n.parentId===null||n.parentId===undefined) svg+=`<text x="${p.x}" y="${p.y-30}" text-anchor="middle" font-family="monospace" font-size="9" fill="#8b5cf6">ROOT</text>`;
+  });
+  svg+=`</svg>`;
+  setView(`<div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%">
+    ${inserting!=null?`<div style="padding:4px 14px;border-radius:12px;background:rgba(52,211,153,.12);border:1px solid #10b981;font-size:12px;font-weight:700;color:#34d399">Inserting: ${inserting}</div>`:''}
+    ${svg}${mkExplain(explain,'#8b5cf6')}</div>`);
+}
+
+/// ── CONDITIONS (STEP-BY-STEP FLOWCHART) ──────────────────────────────
+function bldCond(code, tSteps){
+  const codeLines = code.split('\n');
+  const condBlocks = [];
+  
+  // Parse all if/elif/else blocks
+  codeLines.forEach((line, idx) => {
+    const t = line.trim();
+    if(!t) return;
+    const depth = Math.floor((line.length - line.trimStart().length) / 4);
+    if(/^if\s|^elif\s|^else:/.test(t)){
+      const type = t.startsWith('if') ? 'if' : t.startsWith('elif') ? 'elif' : 'else';
+      const expr = t.replace(/^(if|elif)\s+/,'').replace(/:$/,'');
+      condBlocks.push({ln: idx+1, text: t, expr, type, depth});
+    }
+  });
+
+  const execLines = new Set(tSteps.filter(s=>s.event==='line'&&s.line>0).map(s=>s.line));
+  const varSnaps = {};
+  tSteps.filter(s=>s.event==='line'&&s.line>0).forEach(s=>{
+    if(Object.keys(s.variables||{}).length) varSnaps[s.line] = {...s.variables};
+  });
+  
+  const allVars = {};
+  tSteps.filter(s=>s.event==='line'&&s.line>0).forEach(s=>{
+    Object.entries(s.variables||{}).forEach(([k,v])=>{
+      if(!k.includes('__')&&!String(v).includes('function')&&!String(v).includes('<_io')&&!['args','kwargs'].includes(k)) allVars[k]=v;
+    });
+  });
+  
+  const finalOutput = tSteps.filter(s=>s.output&&s.output.trim()).map(s=>s.output.trim()).join('\n');
+  const steps = [];
+  let bStates = condBlocks.map(() => 'idle');
+
+  steps.push({condBlocks, states: [...bStates], active: -1, vars: allVars, output: '', phase: 'intro',
+    msg: 'Evaluating conditions', explain: 'Python checks each condition top-to-bottom. First TRUE one runs and skips the rest.'});
+
+  let chainTaken = false;
+  condBlocks.forEach((cb, ci) => {
+    if (cb.type === 'if') chainTaken = false; // Reset for new independent if-chain
+
+    const wasEvaluated = execLines.has(cb.ln);
+
+    if (chainTaken && (cb.type === 'elif' || cb.type === 'else')) {
+      bStates[ci] = 'skipped';
+      return; 
+    }
+
+    if (!wasEvaluated) return;
+
+    // Check if the condition evaluated to true by seeing if its body was executed
+    let blockLines = [];
+    for(let j = cb.ln; j < codeLines.length; j++) {
+      let text = codeLines[j].trim();
+      if(!text || text.startsWith('#')) continue;
+      let d = Math.floor((codeLines[j].length - codeLines[j].trimStart().length) / 4);
+      if(d <= cb.depth) break;
+      blockLines.push(j + 1);
+    }
+    let isTrue = blockLines.some(l => execLines.has(l));
+    if (cb.type === 'else') isTrue = true;
+
+    const snap = varSnaps[cb.ln] || allVars;
+    const cleanVars = Object.fromEntries(Object.entries(snap).filter(([k,v])=>
+      !k.includes('__')&&!String(v).includes('function')&&!String(v).includes('<_io')&&!['args','kwargs'].includes(k)));
+
+    // Phase: Testing
+    bStates[ci] = 'testing';
+    steps.push({
+      condBlocks, states: [...bStates], active: ci, phase: 'test',
+      vars: cleanVars, output: '', cbtype: cb.type, expr: cb.expr,
+      msg: cb.type === 'else' ? 'Reached else block' : `Test: ${cb.expr}`,
+      explain: cb.type === 'else' ? 'All previous conditions failed. Evaluating fallback else.' : `Checking if ${cb.expr} is true...`
+    });
+
+    // Phase: Result
+    if (isTrue) {
+      bStates[ci] = 'true';
+      steps.push({
+        condBlocks, states: [...bStates], active: ci, phase: 'true',
+        vars: cleanVars, output: finalOutput, cbtype: cb.type, expr: cb.expr,
+        msg: `✓ TRUE — Block executes`,
+        explain: cb.type === 'else' ? 'Executing else block.' : `Condition met! Executing the block and skipping the rest.`
+      });
+      chainTaken = true;
+    } else {
+      bStates[ci] = 'false';
+      steps.push({
+        condBlocks, states: [...bStates], active: ci, phase: 'false',
+        vars: cleanVars, output: '', cbtype: cb.type, expr: cb.expr,
+        msg: `✗ FALSE`,
+        explain: `Condition failed. Flow moves down to the next branch.`
+      });
+    }
+  });
+
+  // Mark unreached blocks in a taken chain as skipped
+  bStates = bStates.map((st, i) => {
+    if (st === 'idle' && condBlocks[i].type !== 'if' && chainTaken) return 'skipped';
+    return st;
+  });
+
+  steps.push({condBlocks, states: [...bStates], active: -1, phase: 'end', output: finalOutput, vars: allVars, msg: 'Complete', explain: 'Condition chain evaluation finished.'});
+  VA.steps = steps;
+}
+
+function rndrCond(s) {
+  const {condBlocks=[], states=[], active, vars={}, allVars={}, output, phase, explain, expr, cbtype} = s;
+  const curVars = Object.keys(vars||{}).length ? vars : (allVars||{});
+  
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;max-width:550px;">`;
+  
+  // Variables display at top
+  const cleanV = Object.entries(curVars).filter(([k,v]) => !k.includes('__') && !String(v).includes('function'));
+  if(cleanV.length){
+    html += `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;justify-content:center">`;
+    cleanV.slice(0,6).forEach(([k,v]) => {
+      const raw = String(v).replace(/^'|'$/g,'');
+      html += `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;text-align:center"><div style="font-size:9px;color:var(--muted);font-family:var(--mono)">${esc(k)}</div><div style="font-size:14px;font-weight:700;font-family:var(--mono);color:var(--cyan)">${esc(raw.slice(0,14))}</div></div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Active Condition Evaluator (Shows the math)
+  if ((phase === 'test' || phase === 'true' || phase === 'false') && expr && cbtype !== 'else') {
+    const m = expr.match(/^(.+?)\s*(==|!=|>=|<=|>|<|\bin\b|\bnot in\b)\s*(.+)$/);
+    if (m) {
+      const lhsKey = m[1].trim(), op = m[2], rhsKey = m[3].trim();
+      const lhsVal = curVars[lhsKey] !== undefined ? String(curVars[lhsKey]).replace(/^'|'$/g,'') : lhsKey;
+      const rhsVal = curVars[rhsKey] !== undefined ? String(curVars[rhsKey]).replace(/^'|'$/g,'') : rhsKey.replace(/^'|'$/g,'');
+      const isTrue = phase === 'true', isFalse = phase === 'false';
+      const bgC = isTrue ? 'rgba(16,185,129,.1)' : isFalse ? 'rgba(239,68,68,.1)' : 'rgba(245,158,11,.1)';
+      const bdC = isTrue ? '#10b981' : isFalse ? '#f87171' : '#f59e0b';
+
+      html += `<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 16px;border-radius:10px;background:${bgC};border:2px solid ${bdC};margin-bottom:20px;transition:all .3s">
+        <div style="text-align:center"><div style="font-size:9px;color:var(--muted)">${esc(lhsKey)}</div><div style="font-size:18px;font-weight:800;font-family:var(--mono);color:#67e8f9">${esc(lhsVal)}</div></div>
+        <div style="font-size:16px;font-weight:700;color:#a78bfa;font-family:var(--mono)">${esc(op)}</div>
+        <div style="text-align:center"><div style="font-size:9px;color:var(--muted)">${esc(rhsKey)}</div><div style="font-size:18px;font-weight:800;font-family:var(--mono);color:#86efac">${esc(rhsVal)}</div></div>
+        ${isTrue ? `<div style="font-size:18px;margin-left:8px;animation:popin .3s">✅</div>` : isFalse ? `<div style="font-size:18px;margin-left:8px;animation:popin .3s">❌</div>` : `<div style="font-size:18px;margin-left:8px">⏳</div>`}
+      </div>`;
+    }
+  }
+
+  // Draw Flowchart
+  html += `<div style="display:flex;flex-direction:column;align-items:center;position:relative;">`;
+  
+  condBlocks.forEach((cb, i) => {
+    const state = states[i] || 'idle'; // 'testing' | 'true' | 'false' | 'skipped' | 'idle'
+
+    let boxColor = '#334155', bgColor = 'rgba(30,41,59,.3)', textColor = '#94a3b8';
+    if (state === 'testing') { boxColor = '#f59e0b'; bgColor = 'rgba(245,158,11,.15)'; textColor = '#fbbf24'; }
+    else if (state === 'true') { boxColor = '#10b981'; bgColor = 'rgba(16,185,129,.15)'; textColor = '#34d399'; }
+    else if (state === 'false') { boxColor = '#f87171'; bgColor = 'rgba(239,68,68,.15)'; textColor = '#f87171'; }
+    else if (state === 'skipped') { boxColor = '#1e293b'; bgColor = 'rgba(15,23,42,.2)'; textColor = '#475569'; }
+
+    html += `<div style="display:flex;align-items:center;width:340px;position:relative;opacity:${state==='skipped'?'0.3':'1'};transition:all .3s">`;
+
+    // Condition Box (Diamond substitute)
+    html += `<div style="width:160px;padding:12px;border:2px solid ${boxColor};background:${bgColor};border-radius:8px;text-align:center;font-family:var(--mono);font-size:12px;color:${textColor};z-index:2;position:relative;transition:all .3s;${state==='testing'?'box-shadow:0 0 15px '+boxColor+'44;transform:scale(1.05)':''}">
+        <div style="font-size:9px;opacity:0.7;margin-bottom:4px;text-transform:uppercase">${cb.type}</div>
+        ${esc(cb.expr || 'else')}
+    </div>`;
+
+    // Arrow pointing right (True path)
+    const showTruePath = state === 'testing' || state === 'true';
+    if (showTruePath) {
+        const arrowColor = state === 'true' ? '#10b981' : '#475569';
+        html += `<div style="flex:1;height:2px;background:${arrowColor};position:relative;z-index:1;display:flex;align-items:center;justify-content:center;transition:all .3s">
+            <span style="font-size:9px;color:${arrowColor};background:var(--bg);padding:0 4px;font-weight:bold;margin-top:-16px;">TRUE</span>
+            <div style="position:absolute;right:0;top:-4px;width:10px;height:10px;border-top:2px solid ${arrowColor};border-right:2px solid ${arrowColor};transform:rotate(45deg);"></div>
+        </div>`;
+
+        // Execute Block
+        html += `<div style="width:100px;padding:10px;border:2px dashed ${state==='true'?'#10b981':'#475569'};background:${state==='true'?'rgba(16,185,129,.1)':'transparent'};border-radius:8px;text-align:center;font-family:var(--mono);font-size:11px;color:${state==='true'?'#34d399':'#64748b'};transition:all .3s;${state==='true'?'transform:scale(1.05)':''}">
+            Execute
+        </div>`;
+    }
+    html += `</div>`;
+
+    // Arrow pointing down (False path)
+    if (i < condBlocks.length - 1 && state !== 'true' && state !== 'skipped') {
+        const downColor = state === 'false' ? '#f87171' : '#334155';
+        const lbl = state === 'false' ? 'FALSE' : '';
+        html += `<div style="width:340px;display:flex;justify-content:flex-start;">
+            <div style="width:2px;height:24px;background:${downColor};position:relative;display:flex;align-items:center;justify-content:center;margin-left:80px;transition:all .3s">
+               ${lbl ? `<span style="font-size:9px;color:${downColor};background:var(--bg);padding:2px;margin-left:42px;font-weight:bold;border-radius:4px">FALSE</span>` : ''}
+               <div style="position:absolute;bottom:0;left:-4px;width:10px;height:10px;border-bottom:2px solid ${downColor};border-right:2px solid ${downColor};transform:rotate(45deg);"></div>
+            </div>
+        </div>`;
+    }
+  });
+  
+  html += `</div>`;
+  html += `<div style="margin-top:20px;width:100%;">` + mkExplain(explain, phase==='true'?'#10b981':phase==='false'?'#f87171':'#f59e0b') + `</div>`;
+  if(output) html += `<div style="margin-top:10px;width:100%;">` + mkOutput(output) + `</div>`;
+  html += `</div>`;
+  setView(html);
+}
+// ── RECURSION (SCROLLABLE SVG CALL TREE) ───────────────────────────────────
+// ── RECURSION (SCROLLABLE SVG CALL TREE) ───────────────────────────────────
+function bldRecursion(tSteps, code){
+  const fnMatch = code.match(/def\s+(\w+)\s*\(/);
+  const fname = fnMatch ? fnMatch[1] : 'f';
+  
+  const nodes = [];
+  const stack = []; 
+  let nodeId = 0;
+  let animSteps = [];
+  
+  tSteps.forEach(s => {
+    if(s.event === 'call' && s.line_text && s.line_text.includes('def ')){
+      const args = Object.entries(s.variables || {})
+        .filter(([k]) => !['self','__builtins__'].includes(k) && !String(s.variables[k]).includes('function'))
+        .map(([k,v]) => `${k}=${String(v).replace(/'/g,'')}`)
+        .join(', ');
+      const node = {
+        id: nodeId++, label: `${fname}(${args})`, args,
+        parent: stack.length > 0 ? stack[stack.length-1] : -1,
+        children: [], ret: null, depth: stack.length,
+        isBase: false, status: 'pending', x: 0, y: 0 // Initialize to 0
+      };
+      if(node.parent >= 0) nodes[node.parent].children.push(node.id);
+      nodes.push(node);
+      stack.push(node.id);
+    } else if(s.event === 'return' && stack.length > 0){
+      const nodeIdx = stack.pop();
+      const rv = Object.values(s.variables || {}).find(v => /^-?\d+$/.test(String(v).trim()));
+      if(rv !== undefined) nodes[nodeIdx].ret = String(rv);
+      nodes[nodeIdx].status = 'returned';
+      nodes[nodeIdx].isBase = nodes[nodeIdx].depth === nodes.filter(n=>n.depth===nodes[nodeIdx].depth).length > 1 ? false : nodes[nodeIdx].children.length === 0;
+    }
+  });
+  
+  if(!nodes.length){ bldGeneral(tSteps.filter(s=>s.event==='line'&&s.line_text)); return; }
+  
+  const levelGap = 80, nodeGap = 65;
+  const levels = {};
+  nodes.forEach(n => {
+    if(!levels[n.depth]) levels[n.depth] = [];
+    levels[n.depth].push(n.id);
+  });
+  
+  // Recursive layout algorithm
+  function assignPositions(rId, x, depth) {
+    const node = nodes[rId];
+    node.y = depth * levelGap + 30;
+    if(node.children.length === 0){
+      node.x = x;
+      return nodeGap;
+    }
+    let totalWidth = 0;
+    let childX = x;
+    node.children.forEach(cid => {
+      const w = assignPositions(cid, childX, depth + 1);
+      childX += w;
+      totalWidth += w;
+    });
+    node.x = x + totalWidth/2 - nodeGap/2;
+    return Math.max(totalWidth, nodeGap);
+  }
+  
+  // FIX: Handle MULTIPLE roots (like calling fib() inside a loop)
+  let currentX = 0;
+  const roots = nodes.filter(n => n.parent === -1);
+  roots.forEach(r => {
+      const w = assignPositions(r.id, currentX, 0);
+      currentX += w + 40; // Add a horizontal gap between separate trees
+  });
+  
+  const minX = Math.min(...nodes.map(n=>n.x));
+  nodes.forEach(n => { n.x = (n.x - minX) + 40; }); // Shift all to positive coordinates
+  
+  animSteps.push({ revealed: [0], active: 0, returning: -1, nodes, msg: `Calling ${nodes[0]?.label}`, explain: `Program starts by calling ${fname}(). A stack frame is created.` });
+  
+  let revealed = [0];
+  let revIdx = 1;
+  tSteps.forEach((s, si) => {
+    if(s.event === 'call' && s.line_text && s.line_text.includes('def ') && revIdx < nodes.length){
+      revealed = [...revealed, revIdx];
+      const n = nodes[revIdx];
+      const isBase = n.children.length === 0;
+      animSteps.push({ 
+        revealed: [...revealed], active: revIdx, returning: -1, nodes,
+        msg: `Call: ${n.label}`,
+        explain: isBase ? `Base case reached! ${n.label} will return directly.` : `Recursive call! Stack grows deeper (depth ${n.depth}).`
+      });
+      revIdx++;
+    } else if(s.event === 'return' && s.line_text && revIdx > 0){
+      const retNode = nodes.find(n => n.ret !== null && !animSteps.some(as => as.returning === n.id));
+      if(retNode){
+        animSteps.push({
+          revealed: [...revealed], active: retNode.id, returning: retNode.id, nodes,
+          msg: `Return: ${retNode.label} = ${retNode.ret}`,
+          explain: `${retNode.label} completes and returns ${retNode.ret} to its caller.`
+        });
+      }
+    }
+  });
+  
+  animSteps.push({ revealed: nodes.map(n=>n.id), active: -1, returning: -1, nodes,
+    msg: `${fname}() calls finished!`, explain: `All recursive executions have completed.` });
+  
+  VA.steps = animSteps;
+}
+
+function rndrRec(s) {
+  const { revealed=[], active, returning, nodes=[], explain } = s;
+  if(!nodes.length){ setView('<div style="color:var(--dim);padding:20px">No recursion data</div>'); return; }
+  
+  const minX = Math.min(...nodes.map(n=>n.x || 0));
+  const maxX = Math.max(...nodes.map(n=>n.x || 0));
+  const maxY = Math.max(...nodes.map(n=>n.y || 0));
+  
+  // Dynamically size SVG based on tree width, force minimums
+  const svgW = Math.max(maxX - minX + 100, 400);
+  const svgH = maxY + 80;
+  const offsetX = 50 - minX; 
+  
+  let svg = `<svg width="${svgW}" height="${svgH}" style="min-width:${svgW}px; min-height:${svgH}px; overflow:visible; display:block; margin:auto;">`;
+  
+  // Draw Curved Edges
+  nodes.forEach(n => {
+    if(!revealed.includes(n.id)) return;
+    if(n.parent >= 0 && revealed.includes(n.parent)){
+      const p = nodes[n.parent];
+      const isActive = n.id === active || n.id === returning;
+      const color = isActive ? '#00e676' : '#334155';
+      const stroke = isActive ? 2.5 : 1.5;
+      const dash = n.ret !== null ? 'none' : '4,4'; 
+      // Bezier curves
+      svg += `<path d="M ${p.x + offsetX} ${p.y + 22} C ${p.x + offsetX} ${p.y + 50}, ${n.x + offsetX} ${n.y - 50}, ${n.x + offsetX} ${n.y - 22}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-dasharray="${dash}" opacity="0.8" style="transition:all 0.3s ease;"/>`;
+    }
+  });
+  
+  // Draw Nodes
+  nodes.forEach(n => {
+    if(!revealed.includes(n.id)) return;
+    const isActive = n.id === active;
+    const isReturning = n.id === returning;
+    const isDone = n.ret !== null;
+    
+    let fill = '#1e293b', stroke = '#475569', tc = '#94a3b8';
+    if (isReturning) { fill = 'rgba(0,230,118,.2)'; stroke = '#00e676'; tc = '#00e676'; }
+    else if (isActive) { fill = 'rgba(255,171,64,.2)'; stroke = '#ffab40'; tc = '#ffab40'; }
+    else if (isDone && n.children.length === 0) { fill = 'rgba(20,184,166,.15)'; stroke = '#14b8a6'; tc = '#14b8a6'; } 
+    else if (isDone) { fill = 'rgba(68,138,255,.15)'; stroke = '#448aff'; tc = '#82b1ff'; } 
+    
+    const nx = n.x + offsetX;
+    const ny = n.y;
+    
+    // Glow effect
+    if (isActive || isReturning) {
+       svg += `<circle cx="${nx}" cy="${ny}" r="28" fill="${stroke}33" style="filter:blur(4px)"/>`;
+    }
+    
+    svg += `<circle cx="${nx}" cy="${ny}" r="22" fill="${fill}" stroke="${stroke}" stroke-width="2" style="transition:all 0.3s ease;"/>`;
+    
+    const argText = n.args.split('=').pop() || '?';
+    svg += `<text x="${nx}" y="${ny+4}" text-anchor="middle" font-family="monospace" font-size="12" font-weight="700" fill="${tc}">${esc(argText)}</text>`;
+    
+    // Return values
+    if (n.ret !== null) {
+      svg += `<rect x="${nx-18}" y="${ny+24}" width="36" height="16" rx="8" fill="${stroke}22" stroke="${stroke}" stroke-width="1"/>`;
+      svg += `<text x="${nx}" y="${ny+35}" text-anchor="middle" font-family="monospace" font-size="10" font-weight="bold" fill="${stroke}">${esc(n.ret)}</text>`;
+    }
+    
+    // Label root
+    if (n.depth === 0) {
+      svg += `<text x="${nx}" y="${ny-28}" text-anchor="middle" font-family="monospace" font-size="11" font-weight="bold" fill="#8b5cf6">${esc(n.label.split('(')[0])}</text>`;
+    }
+  });
+  
+  svg += `</svg>`;
+  
+  // The SCROLLABLE Viewport Container
+  setView(`<div style="display:flex;flex-direction:column;align-items:center;width:100%;height:100%;">
+     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;height:340px;overflow:auto;box-shadow:inset 0 0 10px rgba(0,0,0,0.5);position:relative;">
+         <div style="min-width:${svgW}px; min-height:${svgH}px; padding:20px; display:flex; justify-content:center;">
+            ${svg}
+         </div>
+     </div>
+     <div style="margin-top:14px;width:100%;max-width:600px">${mkExplain(explain, '#ffab40')}</div>
+  </div>`);
+}
+function bldString(code, tSteps){
+  const tm=code.match(/text\s*=\s*["']([^"']+)["']/); const text=tm?tm[1]:'hello';
+  const chars=[...text]; const steps=[]; const freq={};
+  steps.push({chars,freq:{},curCh:null,curIdx:-1,msg:`String: "${text}"`,explain:`We count how many times each character appears. We use a dictionary: freq[char] = count.`});
+  tSteps.forEach(s=>{
+    if(s.event!=='line'||!s.line_text) return;
+    const sv=s.variables||{};
+    const ch=sv.ch?.replace(/'/g,'')||'';
+    if(!ch) return;
+    const fv=sv.freq||'{}';
+    try{
+      const parsed=JSON.parse(fv.replace(/'/g,'"').replace(/True/g,'true').replace(/False/g,'false'));
+      Object.assign(freq,parsed);
+    }catch(e){}
+    const curIdx=chars.lastIndexOf(ch,chars.indexOf(ch)+Object.values(freq).reduce((a,b)=>a+b,0));
+    steps.push({chars,freq:{...freq},curCh:ch,curIdx,
+      msg:`Processing '${ch==' '?'space':ch}' → freq['${ch}'] = ${freq[ch]||1}`,
+      explain:`freq['${ch}'] = freq.get('${ch}', 0) + 1 = ${(freq[ch]||0)} + 1 = ${(freq[ch]||1)}. Dictionary: ${JSON.stringify(freq)}`});
+  });
+  const finalFreq={};chars.forEach(c=>{finalFreq[c]=(finalFreq[c]||0)+1;});
+  steps.push({chars,freq:finalFreq,curCh:null,curIdx:-1,
+    msg:`Complete! Dictionary: ${JSON.stringify(finalFreq)}`,
+    explain:`All characters counted. '${Object.entries(finalFreq).sort(([,a],[,b])=>b-a)[0][0]}' appears most (${Math.max(...Object.values(finalFreq))} times).`});
+  VA.steps=steps;
+}
+
+function bldPrime(code, tSteps){
+  const nm=code.match(/n\s*=\s*(\d+)/); const n=nm?parseInt(nm[1]):7;
+  const useN=code.includes('range(2, n)');
+  const limit=useN?n:Math.floor(Math.sqrt(n))+1;
+  const divs=[]; for(let i=2;i<limit;i++) divs.push(i);
+  const steps=[]; const checked=[];let foundDiv=false,divBy=-1;
+  steps.push({n,divs,checked:[],cur:-1,isPrime:null,remainder:-1,
+    msg:`Is ${n} prime?`,explain:`A prime number is divisible only by 1 and itself. We test divisors from 2 to ${useN?n-1:Math.floor(Math.sqrt(n))}. If ANY divide evenly, it's NOT prime.`});
+  for(let i=2;i<limit;i++){
+    const rem=n%i; const divides=rem===0;
+    checked.push(i);
+    steps.push({n,divs,checked:[...checked],cur:i,isPrime:null,remainder:rem,divides,
+      msg:`Test: ${n} ÷ ${i} = ${Math.floor(n/i)} remainder ${rem}`,
+      explain:`${n} % ${i} = ${rem}. ${divides?`${rem}===0 → ${n} is divisible by ${i} → NOT PRIME!`:`${rem}≠0 → ${i} does not divide ${n} evenly. Continue…`}`});
+    if(divides){foundDiv=true;divBy=i;break;}
+  }
+  const isPrime=!foundDiv;
+  steps.push({n,divs,checked:[...checked],cur:-1,isPrime,remainder:-1,
+    msg:isPrime?`✓ ${n} IS PRIME!`:`✗ ${n} is NOT prime (divisible by ${divBy})`,
+    explain:isPrime?`${n} passed all tests! No number from 2 to ${limit-1} divides it evenly.`:`${n} ÷ ${divBy} = ${n/divBy} (exactly). A prime must only be divisible by 1 and itself.`});
+  VA.steps=steps;
+}
+
+function bldGCD(tSteps){
+  const steps=[]; let prev={a:null,b:null};
+  steps.push({a:null,b:null,step:0,msg:'GCD — Euclidean Algorithm',explain:'gcd(a,b): keep replacing (a,b) with (b, a%b) until b=0. The answer is a.'});
+  tSteps.forEach(s=>{
+    if(s.event!=='line'||!s.line_text) return;
+    const sv=s.variables||{};
+    const a=parseInt(sv.a), b=parseInt(sv.b);
+    if(!isNaN(a)&&!isNaN(b)&&(a!==prev.a||b!==prev.b)){
+      prev={a,b};
+      steps.push({a,b,remainder:b>0?a%b:-1,msg:b===0?`gcd result = ${a}`:`gcd(${a}, ${b})`,
+        explain:b===0?`b is 0! By Euclidean algorithm, gcd = a = ${a}`:`a%b = ${a}%${b} = ${a%b}. Next call: gcd(${b}, ${a%b})`});
+    }
+  });
+  if(steps.length<=1) steps.push({a:48,b:18,remainder:12,msg:'gcd(48,18)',explain:'48%18=12 → next: gcd(18,12)'});
+  VA.steps=steps;
+}
+
+// ── PATTERN (MATRIX GRID VISUALIZER) ──────────────────────────────────────
+// ── PATTERN (MATRIX GRID VISUALIZER - STUDENT FRIENDLY) ─────────────────────
+// ── PATTERN (FIXED GRID & PARALLEL ITERATION VISUALIZER) ─────────────────────
+function bldPattern(stdout, code) {
+  // Determine final grid size
+  const lines = (stdout || '').split('\n');
+  if(lines.length && lines[lines.length-1] === '') lines.pop();
+  const totalRows = lines.length || 1;
+  const maxCols = Math.max(...lines.map(l => l.length), 1);
+  
+  const tSteps = VA._patSteps || [];
+  const steps = [];
+  const grid = {}; // Stores chars by 'r,c' coordinate
+  
+  // STEP 1: Define the empty grid
+  steps.push({
+    grid: {}, totalRows, maxCols, activeR: 0, activeC: 0, newCells: [], vars: {},
+    msg: "📐 Empty Grid Created",
+    explain: `We define a grid of ${totalRows} rows and ${maxCols} columns. The outer loop will control the row (i), and inner loops control the columns (j).`
+  });
+
+  let r = 0, c = 0;
+  
+  tSteps.forEach(s => {
+    if(s.event !== 'line' || !s.line_text) return;
+    const vars = s.variables || {};
+    
+    // Extract common loop variables to show parallel state
+    const loopVars = Object.fromEntries(
+      Object.entries(vars).filter(([k]) => ['i','j','k','n','row','col'].includes(k))
+    );
+    const varStr = Object.entries(loopVars).map(([k,v])=>`${k}=${v}`).join(', ');
+
+    // Handle Printing (Filling the Grid)
+    if(s.output) {
+      const outStr = s.output;
+      const newCells = [];
+      let hasNewline = false;
+
+      for(let char of outStr) {
+        if(char === '\n') {
+          r++; 
+          c = 0;
+          hasNewline = true;
+        } else {
+          grid[`${r},${c}`] = char;
+          newCells.push(`${r},${c}`);
+          c++;
+        }
+      }
+
+      let explainStr = "";
+      if(hasNewline && newCells.length === 0) {
+         explainStr = `print() without end="" drops the cursor to the next line. Now starting row ${r}.`;
+      } else if (hasNewline && newCells.length > 0) {
+         explainStr = `Printed characters and dropped to row ${r}.`;
+      } else {
+         explainStr = `Printed '${outStr === ' ' ? '(space)' : outStr}' at column ${c-1}. Notice the variables: [${varStr}].`;
+      }
+
+      steps.push({
+        grid: {...grid}, totalRows, maxCols, activeR: r, activeC: c, newCells, vars: {...vars},
+        msg: `✏️ Printing to Grid`,
+        explain: explainStr
+      });
+      
+    } else {
+      // Handle Loop Iteration Steps (No output yet, just variable updates)
+      if(s.line_text.includes('for ') || s.line_text.includes('while ')) {
+          steps.push({
+              grid: {...grid}, totalRows, maxCols, activeR: r, activeC: c, newCells: [], vars: {...vars},
+              msg: `🔁 Loop Iteration`,
+              explain: `Checking loop variables: [${varStr}].`
+          });
+      }
+    }
+  });
+
+  // Final Step
+  steps.push({
+     grid: {...grid}, totalRows, maxCols, activeR: -1, activeC: -1, newCells: [], vars: {}, 
+     msg: "🎉 Pattern Complete!", 
+     explain: "All loops have finished executing and the full pattern is drawn!"
+  });
+  
+  VA.steps = steps;
+}
+
+function rndrPattern(s) {
+  const {grid, totalRows, maxCols, activeR, newCells, vars, explain} = s;
+
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;max-width:600px;gap:15px;padding-bottom:15px">`;
+
+  // 1. Parallel Variable Tracking (Shows i, j, k etc. above the grid)
+  const loopVars = Object.entries(vars).filter(([k]) => ['i','j','k','n','row','col'].includes(k));
+  if(loopVars.length) {
+    html += `<div style="display:flex;gap:12px;justify-content:center;margin-bottom:5px;flex-wrap:wrap;">`;
+    loopVars.forEach(([k,v]) => {
+       html += `<div style="background:var(--surface2);border:2px solid var(--border2);border-radius:10px;padding:6px 18px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.2)">
+         <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase">${esc(k)}</div>
+         <div style="font-size:20px;font-weight:800;color:var(--cyan);font-family:var(--mono)">${esc(String(v))}</div>
+       </div>`;
+    });
+    html += `</div>`;
+  } else {
+    // Spacer if no variables
+    html += `<div style="height:48px;"></div>`;
+  }
+
+  // 2. The Fixed Matrix Grid
+  html += `<div style="display:flex;flex-direction:column;gap:4px;background:var(--surface2);padding:18px;border-radius:12px;border:1px solid var(--border);overflow:auto;max-width:100%;box-shadow:inset 0 0 12px rgba(0,0,0,0.3)">`;
+
+  // Draw Column headers (0, 1, 2...)
+  if(maxCols > 0 && maxCols < 30) {
+      html += `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">`;
+      html += `<div style="width:24px;"></div>`; // Corner spacer
+      for(let c=0; c<maxCols; c++) {
+          html += `<div style="width:32px;text-align:center;font-size:9px;color:var(--dim);font-family:var(--mono)">${c}</div>`;
+      }
+      html += `</div>`;
+  }
+
+  // Draw Rows
+  for(let r=0; r<totalRows; r++) {
+     const isActRow = r === activeR;
+     html += `<div style="display:flex;gap:4px;align-items:center">`;
+     
+     // Row indicator (0, 1, 2...)
+     html += `<div style="width:24px;text-align:right;font-size:10px;font-family:var(--mono);font-weight:${isActRow?'bold':'normal'};color:${isActRow?'var(--amber)':'var(--dim)'}">${r}</div>`;
+
+     // Draw Cells
+     for(let c=0; c<maxCols; c++) {
+        const key = `${r},${c}`;
+        const char = grid[key];
+        const isNew = newCells.includes(key);
+
+        let bg = 'rgba(20,30,50,0.4)';
+        let bc = 'rgba(30,41,59,0.6)';
+        let tc = 'transparent';
+        let content = '·'; // Empty cell dot
+
+        if (char !== undefined) {
+           content = char === ' ' ? '␣' : esc(char);
+           if (isNew) {
+             // Flash newly printed cells in GREEN
+             bg = 'rgba(0,230,118,0.25)';
+             bc = 'var(--green)';
+             tc = 'var(--green)';
+           } else {
+             // Previously printed cells in BLUE/YELLOW
+             bg = 'rgba(68,138,255,0.15)';
+             bc = 'rgba(68,138,255,0.4)';
+             tc = '#93c5fd';
+             // Differentiate alphabets/numbers from symbols
+             if (char !== '*' && char !== ' ') {
+                tc = '#fcd34d'; // Gold for numbers/letters
+             }
+           }
+        } else if (isActRow) {
+           // Highlight current row background slightly
+           bg = 'rgba(255,171,64,0.06)';
+           bc = 'rgba(255,171,64,0.2)';
+        }
+
+        // Pop animation for newly added cells
+        const anim = isNew ? 'transform:scale(1.15);box-shadow:0 0 12px rgba(0,230,118,0.4);z-index:2;' : '';
+
+        html += `<div style="width:32px;height:32px;border-radius:6px;border:1px solid ${bc};background:${bg};color:${tc};display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:16px;font-weight:bold;transition:all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);${anim}">
+           ${content}
+        </div>`;
+     }
+     html += `</div>`;
+  }
+  html += `</div>`;
+
+  // 3. Explanation Text
+  html += mkExplain(explain, newCells.length ? '#10b981' : '#3b82f6');
+  html += `</div>`;
+
+  setView(html);
+}
+
+function bldLoop(tSteps){
+  const iterations=[]; let allOutput='';
+  tSteps.forEach(s=>{
+    if(s.event!=='line'||!s.line_text) return;
+    const sv=s.variables||{};
+    const i=sv.i!==undefined?sv.i:(sv.n!==undefined?sv.n:null);
+    if(s.output&&s.output.trim()){
+      allOutput+=s.output;
+      const outLines=allOutput.trim().split('\n');
+      iterations.push({vars:{...sv},output:s.output,allOutput:allOutput.trim(),line:s.line_text,
+        count:outLines.length,allLines:outLines,i});
+    }
+  });
+  const total=iterations.length;
+  const steps=[{iterations:[],allOutput:'',total,count:0,msg:'Loop starts',explain:`This loop will run ${total} times.`}];
+  iterations.forEach((it,idx)=>{
+    steps.push({iterations:iterations.slice(0,idx+1),allOutput:it.allOutput,total,count:idx+1,
+      vars:it.vars,currentI:it.i,
+      msg:`Iteration ${idx+1}/${total}: ${it.line.trim()}`,
+      explain:`${it.i!==null?`i = ${it.i}. `:''}Output: ${it.output.trim()}. Running total: ${it.count} line${it.count>1?'s':''} printed.`});
+  });
+  if(!steps.length) steps.push({iterations:[],allOutput:'',total:0,count:0,msg:'Loop',explain:'No iterations detected'});
+  VA.steps=steps;
+}
+
+function bldFuncLoop(tSteps, code){
+  const steps = [];
+  const codeLines = code.split('\n');
+  let lastVars = {};
+  const funcSteps = tSteps.filter(s => s.event === 'line' && s.line_text && s.line > 0);
+  
+  funcSteps.forEach((s, idx) => {
+    const sv = s.variables || {};
+    const changed = {};
+    Object.entries(sv).forEach(([k,v]) => {
+      if(lastVars[k] !== v) changed[k] = v;
+      lastVars[k] = v;
+    });
+    const cleanVars = Object.fromEntries(Object.entries(sv).filter(([k,v]) =>
+      !k.includes('__') && !String(v).includes('function') && !String(v).includes('<') && !['args','kwargs'].includes(k)
+    ));
+    const cleanChanged = Object.fromEntries(Object.entries(changed).filter(([k,v]) =>
+      !k.includes('__') && !String(v).includes('function') && !String(v).includes('<') && !['args','kwargs'].includes(k)
+    ));
+    steps.push({
+      line: s.line,
+      lineText: s.line_text.trim(),
+      vars: cleanVars,
+      changed: cleanChanged,
+      output: s.output,
+      idx
+    });
+  });
+  
+  VA.steps = steps.length ? steps : [{line:0,lineText:'(no steps)',vars:{},changed:{},output:'',idx:0}];
+}
+
+function bldVars(tSteps){
+  const steps=[];const seen={};
+  const codeLines=tSteps.filter(s=>s.event==='line'&&s.line_text);
+  steps.push({state:{},changed:{},op:null,output:'',line:'Program begins',explain:'Variables will be created as each line runs.'});
+  codeLines.forEach(s=>{
+    const sv=s.variables||{};const changed={};
+    Object.entries(sv).forEach(([k,v])=>{if(seen[k]!==v){changed[k]=v;seen[k]=v;}});
+    const line=s.line_text.trim();
+    let op=null;let explain='';
+    if(line.includes('=')&&!/^(if|while|for|print)/.test(line)){
+      const eq=line.indexOf('=');
+      const varName=line.slice(0,eq).trim().replace(/[^\w]/g,'');
+      const expr=line.slice(eq+1).trim();
+      const newVal=seen[varName];
+      const binMatch=expr.match(/^(\w+)\s*([\+\-\*\/\%\/\/\*\*])\s*(\w+)$/);
+      if(binMatch){
+        const[,a,op2,b]=binMatch;
+        const av=seen[a]!==undefined?seen[a]:a;
+        const bv=seen[b]!==undefined?seen[b]:b;
+        op={type:'binop',varName,expr,newVal,a,b,op2,av,bv};
+        explain=`${varName} = ${a} ${op2} ${b} = ${av} ${op2} ${bv} = ${newVal}`;
+      } else if(expr.match(/^[\d\.\-]+$||^['"].+['"]$||^True$||^False$/)){
+        op={type:'literal',varName,expr,newVal};
+        explain=`${varName} = ${newVal}. Type: ${/^[\d\.]+$/.test(String(newVal))?'number':String(newVal).startsWith("'")||String(newVal).startsWith('"')?'string':newVal==='True'||newVal==='False'?'boolean':'value'}`;
+      } else {
+        op={type:'assign',varName,expr,newVal};
+        explain=`${varName} = ${newVal}`;
+      }
+    } else if(line.startsWith('print')){
+      explain=s.output?`Output: ${s.output.trim()}`:line;
+    }
+    const isClean=Object.keys(changed).every(k=>!['args','kwargs'].includes(k)&&!String(seen[k]).includes('function')&&!String(seen[k]).includes('<_io'));if((Object.keys(changed).length&&isClean)||s.output){
+      steps.push({state:{...seen},changed,op,output:s.output,line,explain});
+    }
+  });
+  if(steps.length<=1)steps.push({state:{},changed:{},op:null,output:'',line:'No variables found',explain:'Write: x = 10'});
+  VA.steps=steps;
+}
+
+function bldGeneral(userSteps){
+  VA.steps=userSteps.slice(0,200).map(s=>({line_text:s.line_text,vars:s.variables,output:s.output,
+    msg:s.line_text||'',explain:'',desc:''}));
+  if(!VA.steps.length) VA.steps=[{line_text:'',vars:{},output:'',msg:'No steps captured',explain:'',desc:''}];
+}
+// ── ARRAY OPERATIONS (INSERT, POP, TRAVERSAL) ──────────────────────────
+// ── ARRAY (LIST FORMAT WITH ANIMATIONS) ──────────────────────────────────
+function bldArray(tSteps, code) {
+  const steps = [];
+  let lastArr = null;
+
+  steps.push({
+    arr: [], op: 'init', msg: 'Array created',
+    explain: 'An array is a collection of items stored in sequence. Each item has an index (position) starting from 0.'
+  });
+
+  tSteps.forEach(s => {
+    if (s.event !== 'line' || !s.line_text) return;
+    const sv = s.variables || {};
+    
+    // Find the list variable in the current state
+    const arrKey = Object.keys(sv).find(k => sv[k].startsWith('['));
+    if (!arrKey) return;
+
+    const arrRaw = sv[arrKey];
+    const currentArr = arrRaw.replace(/[\[\] ]/g, '').split(',').map(x => x.trim()).filter(x => x);
+    const line = s.line_text.trim();
+    
+    // Determine the operation for the animation
+    let op = 'view', idx = -1, explain = `Current state of ${arrKey}.`;
+    if (line.includes('.append')) { 
+      op = 'append'; 
+      idx = currentArr.length - 1;
+      explain = `Adding ${currentArr[idx]} to the very end of the list.`;
+    } else if (line.includes('.insert')) { 
+      op = 'insert'; 
+      const match = line.match(/\.insert\((\d+)/);
+      idx = match ? parseInt(match[1]) : -1;
+      explain = `Inserting an element at index ${idx}. The elements to the right must shift to make room!`;
+    } else if (line.includes('.pop')) { 
+      op = 'pop'; 
+      explain = `Removing an element. The list shrinks and indices to the right shift left.`;
+    }
+
+    if (arrRaw !== lastArr) {
+      lastArr = arrRaw;
+      steps.push({
+        arr: [...currentArr],
+        op: op,
+        activeIdx: idx,
+        msg: line,
+        explain: explain,
+        output: s.output
+      });
+    }
+  });
+  VA.steps = steps;
+}
+
+function rndrArray(s) {
+  const { arr = [], op, activeIdx, explain, output } = s;
+
+  // Assign CSS classes based on the operation
+  const states = arr.map((_, i) => {
+    if (i === activeIdx) return op === 'append' ? 'sorted' : 'active';
+    return 'normal';
+  });
+
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:20px;width:100%">`;
+  
+  // The Visual List
+  html += `<div class="arrrow" style="margin-bottom:30px">`;
+  arr.forEach((val, i) => {
+    const cls = states[i];
+    const isNew = i === activeIdx && op === 'append';
+    html += `
+      <div class="el ${cls}" style="width:60px; height:60px; transition: all 0.4s; ${isNew ? 'animation: cardpop 0.5s ease;' : ''}">
+        ${esc(val)}
+        <span class="idx" style="bottom:-22px; font-weight:bold; color:var(--cyan)">[${i}]</span>
+      </div>`;
+  });
+  html += `</div>`;
+
+  // Pointer indicator
+  if (activeIdx >= 0) {
+    html += `<div style="display:flex; gap:4px; margin-top:-25px; margin-bottom:10px">`;
+    for (let i = 0; i < arr.length; i++) {
+      html += `<div style="width:60px; text-align:center; font-size:24px; color:var(--amber); opacity:${i === activeIdx ? 1 : 0}; transition:0.3s">▲</div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += mkExplain(explain, '#3b82f6');
+  if (output) html += mkOutput(output);
+  html += `</div>`;
+
+  setView(html);
+}
+
+// ── ERROR ANALYSIS (CRASH VISUALIZER) ──────────────────────────────────
+function bldError(code, tSteps, stderr){
+  const lines = code.split('\n');
+  const steps = [];
+  const execSteps = tSteps.filter(s => s.event === 'line' && s.line > 0);
+  const errStep = tSteps.find(s => s.event === 'error');
+  
+  // Find the exact message and line
+  const errMsg = (errStep ? errStep.line_text : '').replace('ERROR — ', '') || 
+                 (stderr ? stderr.split('\n').reverse().find(l => l.includes('Error')) : 'Unknown Runtime Error');
+  const errLineNo = errStep ? errStep.line : (execSteps.length ? execSteps[execSteps.length-1].line : 1);
+  
+  steps.push({lines, cur:-1, errLine:-1, errMsg:'', phase:'start', msg:'Starting execution...', explain:'Watching for potential crashes.'});
+
+  execSteps.forEach(s => {
+    steps.push({lines, cur:s.line, errLine:-1, errMsg:'', phase:'run', msg:`Line ${s.line} running`, explain:'Executing line...'});
+  });
+
+  if(errStep || stderr) {
+    steps.push({lines, cur:errLineNo, errLine:errLineNo, errMsg, phase:'error', msg:'💥 CRASH DETECTED', 
+      explain: `Python stopped at line ${errLineNo}. Error: ${errMsg}`});
+    
+    let fix = "Check your logic here.";
+    if(errMsg.includes('IndexError')) fix = "💡 SOLUTION: You tried to access an index that doesn't exist. Check if your loop range is too large.";
+    else if(errMsg.includes('NameError')) fix = "💡 SOLUTION: You used a variable before defining it. Check your spelling!";
+    else if(errMsg.includes('ZeroDivisionError')) fix = "💡 SOLUTION: You can't divide by zero. Add an 'if' check before dividing.";
+    
+    steps.push({lines, cur:errLineNo, errLine:errLineNo, errMsg, phase:'fix', msg:'How to fix this:', explain: fix});
+  }
+  VA.steps = steps;
+}
+
+function rndrError(s) {
+  const {lines, cur, errLine, errMsg, phase, explain} = s;
+  let html = `<div style="width:100%;max-width:500px;display:flex;flex-direction:column;gap:10px">`;
+  
+  if(phase === 'error' || phase === 'fix') {
+      html += `<div style="padding:12px;background:rgba(255,82,82,0.1);border:1px solid var(--red);border-radius:8px;color:var(--red);font-family:var(--mono);font-size:13px;animation:swpshake 0.3s ease">⚠️ ${esc(errMsg)}</div>`;
+  }
+
+  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">`;
+  lines.forEach((l, i) => {
+    const ln = i + 1;
+    const isCur = ln === cur && phase === 'run';
+    const isErr = ln === errLine && (phase === 'error' || phase === 'fix');
+    
+    html += `<div style="display:flex;gap:10px;padding:4px 12px;${isErr?'background:rgba(255,82,82,0.15)':isCur?'background:rgba(255,171,64,0.1)':''}">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--dim);min-width:20px;text-align:right">${ln}</span>
+      <span style="font-family:var(--mono);font-size:12px;color:${isErr?'var(--red)':'var(--text)'}">${esc(l) || ' '}</span>
+      ${isErr ? '<span style="margin-left:auto">❌</span>' : ''}
+    </div>`;
+  });
+  html += `</div>`;
+  
+  html += mkExplain(explain, phase==='fix'?'var(--green)':'var(--amber)') + `</div>`;
+  setView(html);
+}
+
+
+// ── THE MASTER RENDER STEP ───────────────────────────────────────────────
+function renderStep() {
+  if (!VA.steps.length) return;
+  const s = VA.steps[VA.idx];
+  
+  (document.getElementById('stepctr')||{textContent:''}).textContent = `${VA.idx + 1}/${VA.steps.length}`;
+  const _sh = document.getElementById('stagehead');
+  if (_sh && _sh.children[0]) _sh.children[0].textContent = s.msg || s.line_text || '';
+  if (_sh && _sh.children[1]) _sh.children[1].textContent = s.desc || s.explain || '';
+  
+  const t = VA.type;
+  
+  if (t === 'BUBBLE' || t === 'INSERT' || t === 'SELECT') {
+    setView(mkArr2(s.arr, s.states) + mkWatchRow(s.watch) + mkExplain(s.explain || s.desc || '', '#fbbf24'));
+  }
+  else if (t === 'ARRAY') rndrArray(s);
+  else if (t === 'BINARY')    rndrBinary(s);
+  else if (t === 'LINEAR')    rndrLinear(s);
+  else if (t === 'RECURSION') rndrRec(s);
+  else if (t === 'STACK')     rndrStack(s);
+  else if (t === 'QUEUE')     rndrQueue(s);
+  else if (t === 'LL')        rndrLL(s);
+  else if (t === 'STRING')    rndrString(s);
+  else if (t === 'PRIME')     rndrPrime(s);
+  else if (t === 'GCD')       rndrGCD(s);
+  else if (t === 'ERROR')     rndrError(s);
+  else if (t === 'PATTERN')   rndrPattern(s);
+  else if (t === 'LOOP')      rndrLoop(s);
+  else if (t === 'FUNC_LOOP') rndrFuncLoop(s);
+  else if (t === 'COND')      rndrCond(s);
+  else if (t === 'VARS')      rndrVars(s);
+  else if (t === 'ARRAY')     rndrArray(s);
+  else if (t === 'BST')       rndrBST(s);
+  else {
+    setView(`<div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:400px">
+      <div style="font-family:var(--mono);font-size:13px;color:var(--text);background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:9px 16px;width:100%;text-align:center">${esc(s.line_text||'')}</div>
+      ${mkWatchRow(s.vars||{})}
+      ${s.output ? mkOutput(s.output) : ''}
+    </div>`);
+  }
+}
+
+function vPlay() {
+  if(!VA.steps.length){ toast('Click ▶ Analyze first','err'); return; }
+  if(VA.timer) clearInterval(VA.timer);
+  VA.paused=false;
+  const _pb1=document.getElementById('playbtn');if(_pb1)_pb1.textContent='⏸ Pause';
+  const delay=Math.max(30,600/VA.spd);
+  VA.timer=setInterval(()=>{
+    if(VA.paused) return;
+    if(VA.idx>=VA.steps.length-1){ clearInterval(VA.timer); VA.timer=null; (()=>{const _p=document.getElementById('playbtn');if(_p)_p.textContent='▶ Play';})(); toast('Done ✓'); return; }
+    VA.idx++; renderStep();
+  },delay);
+}
+function vPause(){
+  if(VA.timer){ clearInterval(VA.timer); VA.timer=null; VA.paused=true; (()=>{const _p=document.getElementById('playbtn');if(_p)_p.textContent='▶ Play';})() }
+  else{ vPlay(); }
+}
+function vStepF(){ if(VA.timer){clearInterval(VA.timer);VA.timer=null;(()=>{const _p=document.getElementById('playbtn');if(_p)_p.textContent='▶ Play';})();} if(VA.idx<VA.steps.length-1){VA.idx++;renderStep();} }
+function vStepB(){ if(VA.timer){clearInterval(VA.timer);VA.timer=null;(()=>{const _p=document.getElementById('playbtn');if(_p)_p.textContent='▶ Play';})();} if(VA.idx>0){VA.idx--;renderStep();} }
+function vReset(){ if(VA.timer){clearInterval(VA.timer);VA.timer=null;} VA.idx=0; VA.paused=false; (()=>{const _p=document.getElementById('playbtn');if(_p)_p.textContent='▶ Play';})(); if(VA.steps.length) renderStep(); }
+function setSpeed(v){ VA.spd=parseInt(v); document.getElementById('spdlbl').textContent=v+'×'; if(VA.timer&&!VA.paused){clearInterval(VA.timer);VA.timer=null;vPlay();} }
+
+async function doTrace(){
+  const code=document.getElementById('ed').value.trim();
+  if(!code){toast('Write some code first','err');return;}
+  document.getElementById('tbtn').disabled=true;(document.getElementById('tbtn')||{textContent:''}).textContent='Tracing…';
+  TS=[];TI=0;outAccum='';
+  const _tl=document.getElementById('tlines');if(_tl)_tl.innerHTML='';
+  const _tout=document.getElementById('traceout');if(_tout)_tout.textContent='';
+  try{
+    const r=await post('/trace',{code});
+    TS=r.steps||[];
+    if(!TS.length){toast('No steps captured','err');return;}
+    (document.getElementById('tlines')||{innerHTML:''}).innerHTML=code.split('\n').map((l,i)=>
+      `<div class="cl" id="cl${i+1}"><span class="ln">${i+1}</span><span class="lt">${esc(l)||' '}</span></div>`
+    ).join('');
+    goTab('trace');TI=0;renderTStep(0);const _orr=document.getElementById('outresult');if(_orr){_orr.textContent='// running trace…';_orr.className='outbox ok';}
+    toast(TS.length+' steps ✓');
+  }catch(e){toast(e.message,'err');}
+  finally{document.getElementById('tbtn').disabled=false;(document.getElementById('tbtn')||{textContent:''}).textContent='⏱ Trace';}
+}
+
+function renderTStep(idx){
+  if(!TS.length) return;
+  const s=TS[idx];
+  (document.getElementById('tctr')||{textContent:''}).textContent=`${idx+1}/${TS.length}`;
+  (document.getElementById('tstat')||{textContent:''}).textContent=`L${s.line} — ${s.event}`;
+  document.querySelectorAll('.cl').forEach(e=>e.classList.remove('cur'));
+  const el=document.getElementById('cl'+s.line);
+  if(el){el.classList.add('cur','vis');el.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  const vb=document.getElementById('vbox');
+  const vars=s.variables||{};
+  if(Object.keys(vars).length){
+    vb.innerHTML=Object.entries(vars).slice(0,8).map(([k,v])=>`<div class="vr"><span class="vk">${esc(k)}</span><span class="vv">${esc(String(v).slice(0,55))}</span></div>`).join('');
+  } else {
+    vb.innerHTML='<p style="color:var(--dim);font-size:11px;padding:3px">No variables yet</p>';
+  }
+  if(s.output){
+    outAccum+=s.output;
+    const _to=document.getElementById('traceout');if(_to)_to.textContent=outAccum;
+    const _or=document.getElementById('outresult');if(_or){_or.textContent=outAccum;_or.className='outbox ok';}
+  }
+}
+
+function playT(){if(!TS.length){doTrace();return;}if(TTimer)clearInterval(TTimer);TTimer=setInterval(()=>{if(TI>=TS.length-1){clearInterval(TTimer);TTimer=null;return;}TI++;renderTStep(TI);},Math.max(35,1000/TSpd));}
+function pauseT(){if(TTimer){clearInterval(TTimer);TTimer=null;}}
+function stepF(){pauseT();if(TI<TS.length-1){TI++;renderTStep(TI);}}
+function stepB(){
+  pauseT();if(TI<=0)return;TI--;
+  outAccum='';for(let i=0;i<=TI;i++)if(TS[i].output)outAccum+=TS[i].output;
+  (document.getElementById('traceout')||{textContent:''}).textContent=outAccum;
+  renderTStep(TI);
+}
+function resetT(){pauseT();TI=0;outAccum='';const _tr2=document.getElementById('traceout');if(_tr2)_tr2.textContent='';document.querySelectorAll('.cl').forEach(e=>e.classList.remove('cur','vis'));(document.getElementById('vbox')||{innerHTML:''}).innerHTML='<p style="color:var(--dim);font-size:11px;padding:3px">Variables appear here</p>';(document.getElementById('tctr')||{textContent:''}).textContent='—/—';}
+function setTSpd(v){TSpd=parseInt(v);document.getElementById('tspdlbl').textContent=v+'×';if(TTimer){pauseT();playT();}}
+
+function extractArr(code){
+  const m=code.match(/(?:arr|nums|lst|data|a)\s*=\s*\[([^\]]+)\]/);
+  if(!m) return null;
+  const r=m[1].split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
+  return r.length>=2?r:null;
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function toast(msg,t='ok'){
+  const el=document.getElementById('toast');el.textContent=msg;
+  const err=t==='err';
+  el.style.cssText=`background:${err?'rgba(255,82,82,.12)':'rgba(0,230,118,.1)'};border-color:${err?'var(--red)':'var(--green)'};color:${err?'var(--red)':'var(--green)'};opacity:1;position:fixed;bottom:16px;right:16px;padding:9px 18px;border-radius:9px;font-size:12px;font-family:var(--mono);border:1px solid;z-index:999;pointer-events:none`;
+  setTimeout(()=>el.style.opacity='0',2800);
+}
+
+async function fetchGH() {
+  const urlInput = document.getElementById('ghurl');
+  const url = (urlInput||{value:''}).value.trim();
+  if (!url) { toast('Paste a GitHub URL first','err'); return; }
+
+  const btn = document.getElementById('ghfetchbtn') || urlInput?.nextElementSibling;
+  if(btn){ btn.textContent = '⏳'; btn.disabled = true; }
+
+  try {
+    if (url.includes('raw.githubusercontent.com') || url.endsWith('.py')) {
+      let rawUrl = url;
+      if (url.includes('github.com') && !url.includes('raw.githubusercontent.com'))
+        rawUrl = url.replace('github.com','raw.githubusercontent.com').replace('/blob/','/');
+      const resp = await fetch(rawUrl);
+      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const code = await resp.text();
+      document.getElementById('ed').value = code;
+      onEdit();
+      toast(`Loaded ${code.split('\n').length} lines ✓`);
+      urlInput.value = '';
+    } else {
+      await showRepoFiles(url);
+    }
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  } finally {
+    if(btn){ btn.textContent = 'Fetch'; btn.disabled = false; }
+  }
+}
+
+async function showRepoFiles(repoUrl) {
+  const match = repoUrl.match(/github\.com\/([^/]+)\/([^/?\s]+)(?:\/tree\/([^/?\s]+))?/);
+  if(!match) throw new Error('Not a valid GitHub repo URL');
+  const [, owner, repo, branch = 'main'] = match;
+
+  toast('Fetching file tree…');
+  
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+  const resp = await fetch(apiUrl, {headers:{'Accept':'application/vnd.github.v3+json'}});
+  
+  if(!resp.ok) {
+    const resp2 = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/master?recursive=1`,
+      {headers:{'Accept':'application/vnd.github.v3+json'}});
+    if(!resp2.ok) throw new Error(`Cannot access repo (${resp.status}). Is it public?`);
+    const data2 = await resp2.json();
+    renderRepoTree(owner, repo, 'master', data2.tree || []);
+    return;
+  }
+  
+  const data = await resp.json();
+  renderRepoTree(owner, repo, branch, data.tree || []);
+}
+
+function renderRepoTree(owner, repo, branch, tree) {
+  const pyFiles = tree.filter(f => f.type === 'blob' && f.path.endsWith('.py'))
+    .sort((a,b) => a.path.localeCompare(b.path));
+  
+  if(!pyFiles.length) { toast('No .py files found in repo','err'); return; }
+
+  let modal = document.getElementById('repobrowsermodal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'repobrowsermodal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    document.body.appendChild(modal);
+  }
+  
+  modal.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border2);border-radius:14px;width:480px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:14px 18px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green)">${esc(owner)}/${esc(repo)}</div>
+        <div style="font-size:11px;color:var(--muted)">${pyFiles.length} Python files found — click one to load</div>
+      </div>
+      <button onclick="document.getElementById('repobrowsermodal').remove()" 
+        style="background:transparent;border:none;color:var(--dim);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div style="overflow-y:auto;padding:8px">
+      ${pyFiles.map(f => `<div onclick="loadRepoFile('${esc(owner)}','${esc(repo)}','${esc(branch)}','${esc(f.path)}')"
+        style="padding:9px 14px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s;margin:2px 0"
+        onmouseover="this.style.background='rgba(0,230,118,.08)'" onmouseout="this.style.background=''">
+        <span style="font-size:14px">🐍</span>
+        <div style="flex:1">
+          <div style="font-family:var(--mono);font-size:12px;color:var(--text)">${esc(f.path)}</div>
+          <div style="font-size:10px;color:var(--dim)">${f.size ? Math.round(f.size/1024*10)/10 + ' KB' : ''}</div>
+        </div>
+        <span style="font-size:11px;color:var(--green)">→</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
+  
+  toast(`Found ${pyFiles.length} Python files`);
+}
+
+async function loadRepoFile(owner, repo, branch, path) {
+  const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+  try {
+    const resp = await fetch(rawUrl);
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const code = await resp.text();
+    document.getElementById('ed').value = code;
+    onEdit();
+    document.getElementById('repobrowsermodal')?.remove();
+    toast(`Loaded ${path} (${code.split('\n').length} lines) ✓`);
+  } catch(e) {
+    toast('Failed to load file: ' + e.message, 'err');
+  }
+}
+
+async function post(path, body) {
+  const h = {'Content-Type':'application/json'};
+  const r = await fetch(API + path, {method:'POST', headers:h, body:JSON.stringify(body)});
+  if(!r.ok){
+    const e = await r.json().catch(()=>({detail:r.statusText}));
+    throw new Error(e.detail || r.statusText);
+  }
+  return r.json();
+}
+</script>
+</body>
+</html>
