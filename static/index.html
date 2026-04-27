@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+  
 /* ══════════════════════════════════════════════════
    CODEVIZ — Retro-terminal meets modern clarity
 ══════════════════════════════════════════════════ */
@@ -449,7 +450,6 @@ async function runOutput() {
     }
   } catch(e) { toast(e.message, 'err'); }
 }
-
 async function buildAnimation(code, tSteps, stdout, stderr) {
   window._currentCode = code; 
   const userSteps = tSteps.filter(s => s.event === 'line' && s.line_text);
@@ -457,65 +457,74 @@ async function buildAnimation(code, tSteps, stdout, stderr) {
   let type = 'GENERAL';
   const c = code.toLowerCase();
   const hasDef = /def /.test(code);
+  
+  // Advanced Recursion Detection (Checks if a function calls itself)
   const isTrueRecursion = (()=>{
     const codeLines = code.split('\n');
-    for(let li=0;li<codeLines.length;li++){
+    for(let li=0; li<codeLines.length; li++){
       const dm = codeLines[li].match(/^(\s*)def\s+(\w+)\s*\(/);
       if(!dm) continue;
-      const fnName=dm[2], baseIndent=dm[1].length;
-      const bodyLines=[];
-      for(let bi=li+1;bi<codeLines.length;bi++){
-        const bl=codeLines[bi];
+      const fnName = dm[2], baseIndent = dm[1].length;
+      const bodyLines = [];
+      for(let bi=li+1; bi<codeLines.length; bi++){
+        const bl = codeLines[bi];
         if(!bl.trim()) continue;
-        const blIndent=bl.length-bl.trimStart().length;
-        if(blIndent<=baseIndent) break;
+        const blIndent = bl.length - bl.trimStart().length;
+        if(blIndent <= baseIndent) break;
         bodyLines.push(bl);
       }
-      const body=bodyLines.join('\n');
+      const body = bodyLines.join('\n');
       if(new RegExp('\\b'+fnName+'\\s*\\(').test(body)) return true;
     }
     return false;
   })();
 
-  if (/arr\[j\].*arr\[j.*1\]|bubble/.test(c)) type = 'BUBBLE';
-  else if (/key\s*=\s*arr\[i\]/.test(c)) type = 'INSERT';
-  else if (/min_idx/.test(c)) type = 'SELECT';
+  // ── THE UNBREAKABLE DETECTION CHAIN ── 
+
+  // 1. CRITICAL PRIORITY: Did the code crash? ALWAYS show the error!
+  if (stderr && stderr.includes('Error')) {
+      type = 'ERROR';
+  }
+  // 2. High-priority algorithms go next
+  else if (/arr\[j\].*arr\[j.*1\]|bubble/.test(c)) type = 'BUBBLE';
+  else if (/key\s*=\s*arr\[i\]|insertion/.test(c)) type = 'INSERT';
+  else if (/min_idx|selection/.test(c)) type = 'SELECT';
   else if (/binary_search|arr\[mid\]|left.*right.*mid/.test(c)) type = 'BINARY';
   else if (/linear_search/.test(c) || (/target\s*=/.test(c) && /for.*range/.test(c) && /arr\[i\]\s*==/.test(c))) type = 'LINEAR';
   else if (/class\s+bst|root\["left"\]|root\["right"\]/.test(c)) type = 'BST';
   else if (/class\s+node|\.next\s*=/.test(c)) type = 'LL';
-  else if (isTrueRecursion) type = 'RECURSION';
-  // 1. ARRAY DETECTION (Highest Priority for lists)
-  if (/\.(append|pop|insert|extend|remove|sort|reverse)\(/.test(code) || (code.includes('= [') && !code.includes('def '))) {
-    type = 'ARRAY';
-  } 
-  // 2. DATA STRUCTURES
+  
+  // 3. Math, Patterns & Strings
+  else if (/is_prime|n\s*%\s*i/.test(c)) type = 'PRIME';
+  else if (/gcd|a\s*,\s*b\s*=\s*b\s*,\s*a\s*%\s*b/.test(c)) type = 'GCD';
+  else if (c.includes('end=') || (c.match(/for\s/g) && c.match(/for\s/g).length > 1 && c.includes('print'))) type = 'PATTERN';
+  else if (/freq\s*=\s*\{\}|for\s+char\s+in|for\s+ch\s+in|\.count\(/.test(c)) type = 'STRING';
+  
+  // 4. Specific Data Structures
   else if (/deque|popleft/.test(c)) type = 'QUEUE';
   else if (/stack\s*=\s*\[\]/.test(c) && (/\.append/.test(c) || /\.pop\(\)/.test(c))) type = 'STACK';
   
-  // 3. ALGORITHMS & MATH
-  else if (/freq\s*=\s*\{\}|for.*ch.*in/s.test(c)) type = 'STRING';
-  else if (/is_prime|n\s*%\s*i/.test(c)) type = 'PRIME';
-  else if (/gcd|a\s*,\s*b\s*=\s*b\s*,\s*a\s*%\s*b/.test(c)) type = 'GCD';
+  // 5. Recursion
+  else if (isTrueRecursion) type = 'RECURSION';
   
-  // 4. LOGIC & ERRORS
-  else if (stderr && stderr.includes('Error')) type = 'ERROR';
-  else if (/for.*range.*for.*range.*print|print.*\*/.test(c)) type = 'PATTERN';
+  // 6. Generic Arrays (Fallback if it has a list, but isn't a sort/search)
+  else if (/\.(append|pop|insert|extend|remove|sort|reverse)\(/.test(c) || (c.includes('= [') && !c.includes('def '))) type = 'ARRAY';
+  
+  // 7. Logic, Loops & Variables
   else if (hasDef && (/for.*range|while/.test(c))) type = 'FUNC_LOOP';
   else if (/for.*range|while/.test(c) && !hasDef) type = 'LOOP';
   else if (/\bif\b/.test(c) && !hasDef && !/for\s|while\s/.test(c)) type = 'COND';
-  
-  // 5. CATCH-ALL FOR SIMPLE ASSIGNMENTS
   else if (!hasDef && code.trim()) type = 'VARS';
 
+  // Setup initial animation state
   VA.type = type; VA.steps = []; VA.idx = 0; VA.paused = false;
 
   const CONFIGS = {
     BUBBLE: {label:'BUBBLE SORT', color:'#f59e0b', title:'Bubble Sort — adjacent elements swap', legend:[['compare','Comparing'],['swap','Swapping ↔'],['sorted','Sorted ✓'],['normal','Unsorted']]},
     INSERT: {label:'INSERTION SORT', color:'#f97316', title:'Insertion Sort — pick, lift, find place, insert', legend:[['lifted','Key (lifted)'],['shifting','Shifting right'],['inserting','Inserted ✓'],['sorted','Sorted']]},
     SELECT: {label:'SELECTION SORT', color:'#ec4899', title:'Selection Sort — find minimum, swap to front', legend:[['minmark','Min found'],['scan','Scanning'],['swap','Swapping'],['sorted','Sorted ✓']]},
-    LINEAR:{label:'LINEAR SEARCH', color:'#3b82f6', title:'Linear Search — check every element', legend:[['scan','Checking'],['skip','Checked'],['found','Found! ✓'],['normal','Not yet']]},
-    BINARY:{label:'BINARY SEARCH', color:'#8b5cf6', title:'Binary Search — halve search space each step', legend:[['mid','Middle'],['inrange','Search range'],['elim','Eliminated'],['found','Found! ✓']]},
+    LINEAR:{label:'LINEAR SEARCH', color:'#3b82f6', title:'Linear Search — check every element', legend:[['scan','Checking'],['discarded','Checked'],['found','Found! ✓'],['normal','Not yet']]},
+    BINARY:{label:'BINARY SEARCH', color:'#8b5cf6', title:'Binary Search — halve search space each step', legend:[['active','Middle'],['normal','Search range'],['discarded','Eliminated'],['found','Found! ✓']]},
     RECURSION:{label:'RECURSION', color:'#ef4444', title:'Recursion — watch the call stack', legend:[['rcall','Active call'],['rbase','Base case'],['rret','Returning']]},
     LL:{label:'LINKED LIST', color:'#ec4899', title:'Linked List — nodes & next pointers', legend:[['llh','Head'],['lla','Current'],['lln','Node']]},
     STACK:{label:'STACK (LIFO)', color:'#10b981', title:'Stack — Last In First Out', legend:[['spush','Push'],['spop','Pop'],['sn','In stack']]},
@@ -536,26 +545,39 @@ async function buildAnimation(code, tSteps, stdout, stderr) {
 
   const cfg = CONFIGS[type] || CONFIGS.GENERAL;
   const tag = document.getElementById('typetag');
-  tag.textContent = cfg.label;
-  tag.style.cssText = `font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid ${cfg.color};color:${cfg.color};letter-spacing:.5px`;
-  document.getElementById('stagemsg').textContent = cfg.title;
-  const _sm=document.getElementById('stagemsg');if(_sm)_sm.textContent='';
-  (document.getElementById('stagelegend')||{innerHTML:''}).innerHTML = cfg.legend.map(([cls,lbl])=>
-    `<div class="leg-item"><div class="leg-dot el sm ${cls}" style="width:12px;height:12px;border-radius:3px;transform:none!important;box-shadow:none!important;display:inline-block;position:static;flex-shrink:0"></div>${lbl}</div>`
-  ).join('');
+  if (tag) {
+    tag.textContent = cfg.label;
+    tag.style.cssText = `font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid ${cfg.color};color:${cfg.color};letter-spacing:.5px`;
+  }
+  
+  const stageMsg = document.getElementById('stagemsg');
+  if (stageMsg) stageMsg.textContent = cfg.title;
+  
+  const stageLegend = document.getElementById('stagelegend');
+  if (stageLegend) {
+    stageLegend.innerHTML = cfg.legend.map(([cls,lbl])=>
+      `<div class="leg-item"><div class="leg-dot el sm ${cls}" style="width:12px;height:12px;border-radius:3px;transform:none!important;box-shadow:none!important;display:inline-block;position:static;flex-shrink:0"></div>${lbl}</div>`
+    ).join('');
+  }
 
-  if (type === 'BUBBLE') bldBubble(extractArr(code)||[64,34,25,12,22,11,90]);
-  else if (type === 'INSERT') bldInsert(extractArr(code)||[12,11,13,5,6]);
-  else if (type === 'SELECT') bldSelect(extractArr(code)||[64,25,12,22,11]);
-  else if (type === 'BINARY') bldBinary(code, tSteps);
-  else if (type === 'LINEAR') bldLinearFull(code, tSteps);
+  // Setup array and targets for searches/sorts
+  const extractedArr = extractArr(code);
+  const targetMatch = code.match(/target\s*=\s*(-?\d+)/);
+  const targetVal = targetMatch ? parseInt(targetMatch[1]) : (type === 'BINARY' ? 15 : 70);
+
+  // ── 2. LAUNCH THE BUILDER ──
+  if (type === 'BUBBLE') bldBubble(extractedArr || [64,34,25,12,22,11,90]);
+  else if (type === 'INSERT') bldInsert(extractedArr || [12,11,13,5,6]);
+  else if (type === 'SELECT') bldSelect(extractedArr || [64,25,12,22,11]);
+  else if (type === 'BINARY') bldBinary(extractedArr || [1,3,5,7,9,11,15,18,21], targetVal);
+  else if (type === 'LINEAR') bldLinear(extractedArr || [10,23,45,70,11,15], targetVal);
   else if (type === 'RECURSION') bldRecursion(tSteps, code);
   else if (type === 'LL') bldLL(tSteps, code);
   else if (type === 'STACK') bldStack(userSteps);
   else if (type === 'QUEUE') bldQueue(userSteps);
   else if (type === 'STRING') bldString(code, userSteps);
   else if (type === 'PRIME') bldPrime(code, userSteps);
-  else if (type === 'GCD') bldGCD(userSteps);
+  else if (type === 'GCD') bldGCD(code, userSteps);
   else if (type === 'ERROR') bldError(code, tSteps, stderr);
   else if (type === 'PATTERN') { VA._patSteps = tSteps; bldPattern(stdout, code); }
   else if (type === 'LOOP') bldLoop(userSteps);
@@ -569,65 +591,169 @@ async function buildAnimation(code, tSteps, stdout, stderr) {
   if (VA.steps.length) renderStep();
 }
 
+
+function rndrLinear(s) {
+  const { arr=[], states=[], watch={}, desc } = s;
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%">`;
+
+  if (watch && Object.keys(watch).length > 0) {
+    html += `<div style="display:flex;gap:12px;margin-bottom:15px;flex-wrap:wrap;justify-content:center">`;
+    Object.entries(watch).forEach(([k, v]) => {
+      html += `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 16px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.2)">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase">${esc(k)}</div>
+        <div style="font-size:18px;font-weight:800;color:var(--cyan);font-family:var(--mono)">${esc(String(v))}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="arrrow" style="margin-bottom:25px">`;
+  arr.forEach((val, i) => {
+    const cls = states[i] || 'normal';
+    html += `<div class="el ${cls}">${esc(String(val))}<span class="idx">[${i}]</span></div>`;
+  });
+  html += `</div>`;
+
+  if (desc) html += mkExplain(desc, 'var(--blue)');
+  html += `</div>`;
+  setView(html);
+}
+
+// ── BINARY SEARCH BUILDER & RENDERER ─────────────────────────────────────
+function bldBinary(arr, target){
+  const a = [...arr], steps = [];
+  steps.push({arr:[...a], states:a.map(()=>'normal'), watch:{target},
+    msg:'🟣 Binary Search Starts', desc:`Goal: Find ${target} by repeatedly dividing the SORTED array in half.`});
+    
+  let l = 0, r = a.length - 1;
+  while(l <= r){
+    let m = Math.floor((l + r) / 2);
+    steps.push({arr:[...a], states:a.map((_,k)=>k<l||k>r?'discarded':k===m?'active':'normal'), watch:{L:l, mid:m, R:r},
+      msg:`⚖️ Check the middle [${m}]`, desc:`Is the middle number (${a[m]}) our target (${target})?`});
+      
+    if(a[m] === target){
+      steps.push({arr:[...a], states:a.map((_,k)=>k===m?'found':k<l||k>r?'discarded':'normal'), watch:{found_at:m},
+        msg:`🎉 Found it!`, desc:`Target ${target} located exactly at the middle index ${m}.`});
+      VA.steps = steps; 
+      return;
+    }
+    if(a[m] < target){
+      steps.push({arr:[...a], states:a.map((_,k)=>k<=m?'discarded':k>r?'discarded':'normal'), watch:{action:'Move Left'},
+        msg:`📈 Too Small!`, desc:`${a[m]} is less than ${target}. Throw away the LEFT half.`});
+      l = m + 1;
+    } else {
+      steps.push({arr:[...a], states:a.map((_,k)=>k>=m?'discarded':k<l?'discarded':'normal'), watch:{action:'Move Right'},
+        msg:`📉 Too Big!`, desc:`${a[m]} is greater than ${target}. Throw away the RIGHT half.`});
+      r = m - 1;
+    }
+  }
+  steps.push({arr:[...a], states:a.map(()=>'discarded'), watch:{},
+    msg:'❌ Not Found', desc:`The search space is empty. ${target} is not here.`});
+  VA.steps = steps;
+}
+
+function rndrBinary(s) {
+  const { arr=[], states=[], watch={}, desc } = s;
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%">`;
+
+  if (watch && Object.keys(watch).length > 0) {
+    html += `<div style="display:flex;gap:12px;margin-bottom:15px;flex-wrap:wrap;justify-content:center">`;
+    Object.entries(watch).forEach(([k, v]) => {
+      html += `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 16px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.2)">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase">${esc(k)}</div>
+        <div style="font-size:18px;font-weight:800;color:var(--cyan);font-family:var(--mono)">${esc(String(v))}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="arrrow" style="margin-bottom:25px">`;
+  arr.forEach((val, i) => {
+    const cls = states[i] || 'normal';
+    html += `<div class="el ${cls}">${esc(String(val))}<span class="idx">[${i}]</span></div>`;
+  });
+  html += `</div>`;
+
+  if (desc) html += mkExplain(desc, 'var(--purple)');
+  html += `</div>`;
+  setView(html);
+}
+// ── BUBBLE SORT (Teacher Explanations + Colors) ──────────────────────────
 function bldBubble(arr){
   const a=[...arr], n=a.length, steps=[];
-  steps.push({arr:[...a], states:a.map(()=>'normal'), watch:{}, msg:'Bubble Sort starts', desc:`[${a.join(', ')}]`});
+  steps.push({arr:[...a], states:a.map(()=>'normal'), watch:{}, 
+    msg:'🔵 Bubble Sort Starts', desc:`Goal: Move the largest numbers to the right. Array: [${a.join(', ')}]`});
   for(let i=0;i<n-1;i++){
     for(let j=0;j<n-i-1;j++){
       const st=a.map((_,k)=>k>=n-i?'sorted':'normal'); st[j]='compare'; st[j+1]='compare';
-      steps.push({arr:[...a],states:st,watch:{i,j,comparing:`${a[j]} vs ${a[j+1]}`},msg:`Compare [${j}]=${a[j]} and [${j+1}]=${a[j+1]}`,desc:`${a[j]>a[j+1]?'→ Swap needed!':'→ Already in order'}`});
+      steps.push({arr:[...a],states:st,watch:{i,j,comparing:`${a[j]} vs ${a[j+1]}`},
+        msg:`🔍 Compare: [${j}] and [${j+1}]`,
+        desc:a[j]>a[j+1]?`🚨 ${a[j]} > ${a[j+1]}! The heavier number must "bubble" to the right. Swap them!`:`✅ ${a[j]} ≤ ${a[j+1]}. They are in the correct order. Do nothing.`});
       if(a[j]>a[j+1]){
         const st2=a.map((_,k)=>k>=n-i?'sorted':'normal'); st2[j]='swap'; st2[j+1]='swap';
-        steps.push({arr:[...a],states:st2,watch:{swapping:`${a[j]} ↔ ${a[j+1]}`},msg:`SWAP ${a[j]} ↔ ${a[j+1]}`,desc:'Exchanging positions'});
+        steps.push({arr:[...a],states:st2,watch:{swapping:`${a[j]} ↔ ${a[j+1]}`},
+          msg:`↔️ SWAP ${a[j]} and ${a[j+1]}`, desc:`Swapping positions to push the larger number right.`});
         [a[j],a[j+1]]=[a[j+1],a[j]];
-        steps.push({arr:[...a],states:a.map((_,k)=>k>=n-i?'sorted':'normal'),watch:{},msg:`After swap`,desc:`[${a.join(', ')}]`});
       }
     }
-    steps.push({arr:[...a],states:a.map((_,k)=>k>=n-i-1?'sorted':'normal'),watch:{pass:i+1},msg:`Pass ${i+1} done — ${a[n-i-1]} is in place`,desc:`Sorted: [${a.slice(n-i-1).join(', ')}]`});
+    steps.push({arr:[...a],states:a.map((_,k)=>k>=n-i-1?'sorted':'normal'),watch:{pass:i+1},
+      msg:`🏁 Pass ${i+1} Done`, desc:`The number ${a[n-i-1]} has successfully locked into its final position!`});
   }
-  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'✓ Fully sorted!',desc:`Result: [${a.join(', ')}]`});
+  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'🎉 Array is Sorted!',desc:`Bubble Sort complete: [${a.join(', ')}]`});
   VA.steps=steps;
 }
 
+// ── INSERTION SORT (Teacher Explanations + Colors) ───────────────────────
 function bldInsert(arr){
   const a=[...arr], n=a.length, steps=[];
-  steps.push({arr:[...a],states:a.map((_,i)=>i===0?'sorted':'normal'),watch:{},msg:'Insertion Sort — [0] already sorted',desc:`Key will shift left until in place`});
+  steps.push({arr:[...a],states:a.map((_,i)=>i===0?'sorted':'normal'),watch:{},
+    msg:'🟠 Insertion Sort', desc:`Imagine sorting playing cards in your hand. The first card [0] is already "sorted".`});
   for(let i=1;i<n;i++){
     const key=a[i];
-    steps.push({arr:[...a],states:a.map((_,k)=>k<i?'sorted':k===i?'lifted':'normal'),watch:{i,key},msg:`Pick key = ${key} at index [${i}]`,desc:`Lifting it up to find correct position`});
+    steps.push({arr:[...a],states:a.map((_,k)=>k<i?'sorted':k===i?'lifted':'normal'),watch:{i,key},
+      msg:`🃏 Pick up card: ${key}`, desc:`We lift element [${i}] (${key}) out of the array to find its correct spot on the left.`});
     let j=i-1;
     while(j>=0&&a[j]>key){
       a[j+1]=a[j];
-      steps.push({arr:[...a],states:a.map((_,k)=>k<j?'sorted':k===j||k===j+1?'shifting':'normal'),watch:{key,j,shifting:a[j]},msg:`${a[j]} > ${key}: shift ${a[j]} right`,desc:`Moving [${j}]→[${j+1}]`});
+      steps.push({arr:[...a],states:a.map((_,k)=>k<j?'sorted':k===j||k===j+1?'shifting':'normal'),watch:{key,j,shifting:a[j]},
+        msg:`➡️ Shift ${a[j]} right`, desc:`Because ${a[j]} > ${key}, we move ${a[j]} one space to the right to make room.`});
       j--;
     }
     a[j+1]=key;
     const st=a.map((_,k)=>k<=i?'sorted':'normal'); st[j+1]='inserting';
-    steps.push({arr:[...a],states:st,watch:{key,inserted_at:j+1},msg:`Insert ${key} at [${j+1}] ✓`,desc:`Sorted: [${a.slice(0,i+1).join(', ')}]`});
+    steps.push({arr:[...a],states:st,watch:{key,inserted_at:j+1},
+      msg:`📥 Insert ${key} at [${j+1}]`, desc:`We found the empty slot! Dropping ${key} into place.`});
   }
-  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'✓ Fully sorted!',desc:`[${a.join(', ')}]`});
+  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'🎉 Array is Sorted!',desc:`Insertion Sort complete: [${a.join(', ')}]`});
   VA.steps=steps;
 }
 
+// ── SELECTION SORT (Teacher Explanations + Colors) ───────────────────────
 function bldSelect(arr){
   const a=[...arr], n=a.length, steps=[];
-  steps.push({arr:[...a],states:a.map(()=>'normal'),watch:{},msg:'Selection Sort — find min each pass',desc:`[${a.join(', ')}]`});
+  steps.push({arr:[...a],states:a.map(()=>'normal'),watch:{},
+    msg:'🔴 Selection Sort', desc:`Goal: Scan the unsorted part, find the absolute smallest number, and swap it to the front.`});
   for(let i=0;i<n-1;i++){
     let mi=i;
-    steps.push({arr:[...a],states:a.map((_,k)=>k<i?'sorted':k===i?'minmark':'normal'),watch:{i,assumed_min:a[i]},msg:`Pass ${i+1}: assume [${i}]=${a[i]} is minimum`,desc:`Scan right for smaller`});
+    steps.push({arr:[...a],states:a.map((_,k)=>k<i?'sorted':k===i?'minmark':'normal'),watch:{i,assumed_min:a[i]},
+      msg:`👀 Starting Pass ${i+1}`, desc:`Assume the first unsorted number [${i}] (${a[i]}) is the smallest.`});
     for(let j=i+1;j<n;j++){
       const st=a.map((_,k)=>k<i?'sorted':k===mi?'minmark':k===j?'scan':'normal');
-      steps.push({arr:[...a],states:st,watch:{scanning:a[j],current_min:a[mi]},msg:`[${j}]=${a[j]} vs min ${a[mi]}?`,desc:a[j]<a[mi]?`New min = ${a[j]}`:`Keep min = ${a[mi]}`});
+      steps.push({arr:[...a],states:st,watch:{scanning:a[j],current_min:a[mi]},
+        msg:`Is ${a[j]} smaller than ${a[mi]}?`, 
+        desc:a[j]<a[mi]?`🚨 YES! We found a new minimum: ${a[j]}.`:`❌ No, keep looking.`});
       if(a[j]<a[mi]) mi=j;
     }
     if(mi!==i){
       const st=a.map((_,k)=>k<i?'sorted':k===i||k===mi?'swap':'normal');
-      steps.push({arr:[...a],states:st,watch:{swapping:`[${i}]↔[${mi}]`},msg:`Swap min ${a[mi]} → position [${i}]`,desc:'Placing minimum correctly'});
+      steps.push({arr:[...a],states:st,watch:{swapping:`[${i}] ↔ [${mi}]`},
+        msg:`↔️ Swap absolute min to front`, desc:`Swapping our starting number ${a[i]} with the true minimum ${a[mi]}.`});
       [a[i],a[mi]]=[a[mi],a[i]];
     }
-    steps.push({arr:[...a],states:a.map((_,k)=>k<=i?'sorted':'normal'),watch:{pass:i+1},msg:`[${i}]=${a[i]} in place ✓`,desc:`Sorted: [${a.slice(0,i+1).join(', ')}]`});
+    steps.push({arr:[...a],states:a.map((_,k)=>k<=i?'sorted':'normal'),watch:{pass:i+1},
+      msg:`🔒 Locked in place`, desc:`The number ${a[i]} is now permanently sorted.`});
   }
-  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'✓ Fully sorted!',desc:`[${a.join(', ')}]`});
+  steps.push({arr:[...a],states:a.map(()=>'sorted'),watch:{},msg:'🎉 Array is Sorted!',desc:`Selection Sort complete.`});
   VA.steps=steps;
 }
 
@@ -675,124 +801,8 @@ function parseArr(s){
 }
 
 // ── BINARY SEARCH ────────────────────────────────────────────────────────
-function bldBinary(code, tSteps) {
-  const arr = extractArr(code) || [2, 5, 8, 12, 16, 23, 38, 56, 72, 91];
-  const tgtMatch = code.match(/target\s*=\s*(\d+)/) || code.match(/,\s*(\d+)\)/);
-  const target = tgtMatch ? parseInt(tgtMatch[1]) : 23;
-  const steps = []; 
-  let left = 0, right = arr.length - 1, pass = 0;
-  
-  steps.push({arr, states: arr.map(()=>'inrange'), left, right, mid: -1, target, pass: 0,
-    msg: `Binary Search for ${target}`, explain: `Array has ${arr.length} elements. We'll divide the search space in half each step.`});
-    
-  while (left <= right) {
-    pass++;
-    const mid = Math.floor((left + right) / 2);
-    const st = arr.map((_, k) => k < left || k > right ? 'elim' : k === mid ? 'mid' : 'inrange');
-    
-    steps.push({arr, states: st, left, right, mid, target, pass,
-      msg: `Step ${pass}: Check middle index [${mid}] = ${arr[mid]}`,
-      explain: `mid = (${left}+${right}) ÷ 2 = ${mid}. Is ${arr[mid]} === ${target}? ${arr[mid]===target ? 'YES! Found it!' : arr[mid]<target ? `No. ${arr[mid]} < ${target} → search RIGHT half` : `No. ${arr[mid]} > ${target} → search LEFT half`}`});
-      
-    if (arr[mid] === target) {
-      const sf = arr.map((_, k) => k === mid ? 'found' : k < left || k > right ? 'elim' : 'normal');
-      steps.push({arr, states: sf, left, right, mid, target, pass, foundAt: mid,
-        msg: `✓ Found ${target} at index [${mid}]!`, explain: `Found in ${pass} steps.`});
-      break;
-    } else if (arr[mid] < target) {
-      left = mid + 1;
-    } else {
-      right = mid - 1;
-    }
-    
-    if (left > right) {
-      steps.push({arr, states: arr.map(()=>'elim'), left, right, mid: -1, target, pass, foundAt: -1,
-        msg: `${target} not found`, explain: `Search space is empty. All elements eliminated.`});
-    }
-  }
-  VA.steps = steps;
-}
 
-function rndrBinary(s) {
-  const {arr, states, left, right, mid, target, foundAt, explain} = s;
-  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%">`;
-  html += `<div style="padding:4px 16px;border-radius:12px;background:rgba(139,92,246,.15);border:1px solid #8b5cf6;font-size:12px;font-weight:700;color:#c4b5fd;letter-spacing:1px">TARGET: ${target}</div>`;
-  html += mkArr2(arr, states);
-  html += `<div style="display:flex;gap:6px;margin-top:-20px;margin-bottom:10px">${arr.map((_, i) => {
-    const lbls = [];
-    if (i === mid && mid >= 0) lbls.push({t:'M', c:'#a78bfa'});
-    if (i === left && left !== right && i !== mid) lbls.push({t:'L', c:'#14b8a6'});
-    if (i === right && left !== right && i !== mid) lbls.push({t:'R', c:'#f87171'});
-    if (i === left && i === right) lbls.push({t:'L=R', c:'#fbbf24'});
-    return lbls.length ? `<div style="width:52px;text-align:center"><div style="font-size:9px;font-weight:700;color:${lbls[0].c};font-family:var(--mono)">${lbls.map(l=>l.t).join('/')}</div><div style="font-size:13px;color:${lbls[0].c}">▲</div></div>` : `<div style="width:52px"></div>`;
-  }).join('')}</div>`;
-  const wv = {target}; if(left >= 0) wv.left = left; if(right >= 0) wv.right = right; if(mid >= 0) wv.mid = mid;
-  html += mkWatchRow(wv);
-  html += mkExplain(explain, foundAt >= 0 ? '#10b981' : '#8b5cf6');
-  html += `</div>`;
-  setView(html);
-}
 
-// ── LINEAR SEARCH ────────────────────────────────────────────────────────
-function bldLinearFull(code, tSteps) {
-  const arr = extractArr(code) || [10, 25, 3, 47, 8, 15, 33];
-  const tgtMatch = code.match(/target\s*=\s*(\d+)/) || code.match(/==\s*(\d+)/);
-  const target = tgtMatch ? parseInt(tgtMatch[1]) : 47;
-  
-  const steps = []; 
-  const checked = [];
-  steps.push({arr, ptr:-1, checked:[], target, foundAt:-1, comparing:null,
-    msg:`Linear Search for ${target}`,
-    explain:`We check each element one by one. If arr[i] == target, we found it!`});
-
-  const iSteps = tSteps.filter(s => s.event==='line' && s.variables && s.variables.i !== undefined);
-  
-  if (iSteps.length) {
-    iSteps.forEach(s => {
-      const i = parseInt(s.variables.i); if(isNaN(i)) return;
-      const val = arr[i]; if(val === undefined) return;
-      const match = val === target;
-      if (!checked.includes(i)) checked.push(i);
-      
-      steps.push({arr, ptr:i, checked:[...checked], target, foundAt: match ? i : -1, comparing:{i, val, target, match},
-        msg: match ? `✓ Found ${target} at index [${i}]!` : `arr[${i}] = ${val} ≠ ${target}`,
-        explain: match ? `YES! arr[${i}] = ${target}. Target found.` : `arr[${i}] = ${val}. Move to next.`});
-      if (match) return;
-    });
-  } else {
-    for (let i = 0; i < arr.length; i++) {
-      checked.push(i);
-      const match = arr[i] === target;
-      steps.push({arr, ptr:i, checked:[...checked], target, foundAt: match ? i : -1, comparing:{i, val:arr[i], target, match},
-        msg: match ? `✓ Found ${target} at [${i}]!` : `arr[${i}] = ${arr[i]} ≠ ${target}`,
-        explain: match ? `Found! arr[${i}] = ${arr[i]}.` : `${arr[i]} ≠ ${target}. Next index.`});
-      if (match) break;
-    }
-  }
-  VA.steps = steps;
-}
-
-function rndrLinear(s) {
-  const {arr, ptr, checked, target, foundAt, comparing, explain} = s;
-  const states = arr.map((_, i) => i === foundAt ? 'found' : i === ptr ? 'scan' : checked.includes(i) && i !== ptr ? 'skip' : 'normal');
-  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;width:100%">`;
-  html += `<div style="padding:4px 16px;border-radius:12px;background:rgba(59,130,246,.15);border:1px solid #3b82f6;font-size:12px;font-weight:700;color:#93c5fd;letter-spacing:1px">TARGET: ${target}</div>`;
-  html += mkArr2(arr, states);
-  html += `<div style="display:flex;gap:6px;margin-top:-20px;margin-bottom:10px">${arr.map((_, i) => `<div style="width:52px;text-align:center;font-size:20px;color:#fbbf24;opacity:${i === ptr ? 1 : 0};transition:all .25s">▲</div>`).join('')}</div>`;
-  
-  if (comparing && ptr >= 0) {
-    const {i, val, match} = comparing;
-    html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:10px;background:${match ? 'rgba(16,185,129,.12)' : 'rgba(245,158,11,.08)'};border:2px solid ${match ? '#10b981' : '#f59e0b'}">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--muted)">arr[${i}]</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:${match ? '#34d399' : '#fbbf24'}">${esc(String(val))}</div></div>
-      <div style="font-size:18px;font-weight:700;color:${match ? '#34d399' : '#f87171'};font-family:var(--mono)">${match ? '==' : '≠'}</div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--muted)">target</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:#a78bfa">${esc(String(target))}</div></div>
-      <div style="font-size:22px">${match ? '✅' : '❌'}</div>
-    </div>`;
-  }
-  html += mkExplain(explain, foundAt >= 0 ? '#10b981' : '#3b82f6');
-  html += `</div>`;
-  setView(html);
-}
 // ── STACK ────────────────────────────────────────────────────────────────
 function bldStack(tSteps){
   const steps=[]; let stk=[];
@@ -1035,389 +1045,433 @@ function rndrBST(s){
 }
 
 /// ── CONDITIONS (STEP-BY-STEP FLOWCHART) ──────────────────────────────
-function bldCond(code, tSteps){
-  const codeLines = code.split('\n');
-  const condBlocks = [];
-  
-  // Parse all if/elif/else blocks
-  codeLines.forEach((line, idx) => {
-    const t = line.trim();
-    if(!t) return;
-    const depth = Math.floor((line.length - line.trimStart().length) / 4);
-    if(/^if\s|^elif\s|^else:/.test(t)){
-      const type = t.startsWith('if') ? 'if' : t.startsWith('elif') ? 'elif' : 'else';
-      const expr = t.replace(/^(if|elif)\s+/,'').replace(/:$/,'');
-      condBlocks.push({ln: idx+1, text: t, expr, type, depth});
-    }
-  });
-
-  const execLines = new Set(tSteps.filter(s=>s.event==='line'&&s.line>0).map(s=>s.line));
-  const varSnaps = {};
-  tSteps.filter(s=>s.event==='line'&&s.line>0).forEach(s=>{
-    if(Object.keys(s.variables||{}).length) varSnaps[s.line] = {...s.variables};
-  });
-  
-  const allVars = {};
-  tSteps.filter(s=>s.event==='line'&&s.line>0).forEach(s=>{
-    Object.entries(s.variables||{}).forEach(([k,v])=>{
-      if(!k.includes('__')&&!String(v).includes('function')&&!String(v).includes('<_io')&&!['args','kwargs'].includes(k)) allVars[k]=v;
-    });
-  });
-  
-  const finalOutput = tSteps.filter(s=>s.output&&s.output.trim()).map(s=>s.output.trim()).join('\n');
+// ── CONDITIONS (Logic Tree & Flowchart) ──────────────────────────────────
+// ── CONDITIONS (True Branching Decision Tree) ──────────────────────────
+// ── CONDITIONS (Advanced AST-Style Decision Tree) ──────────────────────
+function bldCond(code, tSteps) {
   const steps = [];
-  let bStates = condBlocks.map(() => 'idle');
+  const nodes = [];
+  const edges = [];
+  const codeLines = code.split('\n');
 
-  steps.push({condBlocks, states: [...bStates], active: -1, vars: allVars, output: '', phase: 'intro',
-    msg: 'Evaluating conditions', explain: 'Python checks each condition top-to-bottom. First TRUE one runs and skips the rest.'});
+  let curY = 50;
 
-  let chainTaken = false;
-  condBlocks.forEach((cb, ci) => {
-    if (cb.type === 'if') chainTaken = false; // Reset for new independent if-chain
+  tSteps.forEach((s, idx) => {
+    if (s.event !== 'line' || s.line <= 0) return;
+    const rawLine = codeLines[s.line - 1];
+    if (!rawLine || !rawLine.trim()) return;
 
-    const wasEvaluated = execLines.has(cb.ln);
+    // We use Python's indentation to physically structure the tree
+    const indent = rawLine.search(/\S/);
+    const text = rawLine.trim();
 
-    if (chainTaken && (cb.type === 'elif' || cb.type === 'else')) {
-      bStates[ci] = 'skipped';
-      return; 
+    let cType = null;
+    if (text.startsWith('if ')) cType = 'IF';
+    else if (text.startsWith('elif ')) cType = 'ELIF';
+    else if (text.startsWith('else:')) cType = 'ELSE';
+
+    let isTrue = false;
+    let isAction = !cType;
+
+    if (cType) {
+        if (cType === 'ELSE') {
+            isTrue = true;
+        } else {
+            // Determine truth by checking if the next executed line is indented deeper.
+            const nxt = tSteps.slice(idx+1).find(x => x.event === 'line');
+            if (nxt && nxt.line > 0) {
+                const nxtRaw = codeLines[nxt.line - 1];
+                const nxtIndent = nxtRaw.search(/\S/);
+                if (nxtIndent > indent) isTrue = true;
+            }
+        }
     }
 
-    if (!wasEvaluated) return;
+    const nodeId = nodes.length;
+    const expr = isAction ? text : (cType === 'ELSE' ? 'else (fallback)' : text.replace(/^(if|elif)\s+/, '').replace(/:$/, ''));
 
-    // Check if the condition evaluated to true by seeing if its body was executed
-    let blockLines = [];
-    for(let j = cb.ln; j < codeLines.length; j++) {
-      let text = codeLines[j].trim();
-      if(!text || text.startsWith('#')) continue;
-      let d = Math.floor((codeLines[j].length - codeLines[j].trimStart().length) / 4);
-      if(d <= cb.depth) break;
-      blockLines.push(j + 1);
+    // Base X is 220. Every indentation pushes the node 18px to the right to create sub-branches!
+    const x = 220 + (indent * 18);
+
+    const node = { id: nodeId, type: isAction ? 'ACTION' : cType, expr, x, y: curY, state: isAction ? 'exec' : (isTrue ? 'true' : 'false') };
+    nodes.push(node);
+
+    // Draw lines correctly connecting to the previous execution step
+    if (nodeId > 0) {
+        const prev = nodes[nodeId - 1];
+        let color = '#3b82f6', label = '↓'; // Default action link
+        if (prev.type !== 'ACTION') {
+            if (prev.state === 'true') { color = '#10b981'; label = 'YES'; }
+            else { color = '#ef4444'; label = 'NO'; }
+        }
+        edges.push({ from: prev.id, to: nodeId, color, label });
     }
-    let isTrue = blockLines.some(l => execLines.has(l));
-    if (cb.type === 'else') isTrue = true;
 
-    const snap = varSnaps[cb.ln] || allVars;
-    const cleanVars = Object.fromEntries(Object.entries(snap).filter(([k,v])=>
-      !k.includes('__')&&!String(v).includes('function')&&!String(v).includes('<_io')&&!['args','kwargs'].includes(k)));
+    let msg = '', explain = '';
+    if (isAction) {
+        msg = `⚙️ Executing Code`;
+        explain = `Condition passed! Running: ${text}`;
+    } else {
+        msg = `${cType} Check`;
+        explain = isTrue ? `Condition "${expr}" is TRUE. ✅ Following YES path into the block.` : `Condition "${expr}" is FALSE. ❌ Following NO path to the next check.`;
+    }
 
-    // Phase: Testing
-    bStates[ci] = 'testing';
     steps.push({
-      condBlocks, states: [...bStates], active: ci, phase: 'test',
-      vars: cleanVars, output: '', cbtype: cb.type, expr: cb.expr,
-      msg: cb.type === 'else' ? 'Reached else block' : `Test: ${cb.expr}`,
-      explain: cb.type === 'else' ? 'All previous conditions failed. Evaluating fallback else.' : `Checking if ${cb.expr} is true...`
+        nodes: JSON.parse(JSON.stringify(nodes)),
+        edges: JSON.parse(JSON.stringify(edges)),
+        activeId: nodeId,
+        msg, explain
     });
 
-    // Phase: Result
-    if (isTrue) {
-      bStates[ci] = 'true';
-      steps.push({
-        condBlocks, states: [...bStates], active: ci, phase: 'true',
-        vars: cleanVars, output: finalOutput, cbtype: cb.type, expr: cb.expr,
-        msg: `✓ TRUE — Block executes`,
-        explain: cb.type === 'else' ? 'Executing else block.' : `Condition met! Executing the block and skipping the rest.`
-      });
-      chainTaken = true;
-    } else {
-      bStates[ci] = 'false';
-      steps.push({
-        condBlocks, states: [...bStates], active: ci, phase: 'false',
-        vars: cleanVars, output: '', cbtype: cb.type, expr: cb.expr,
-        msg: `✗ FALSE`,
-        explain: `Condition failed. Flow moves down to the next branch.`
-      });
-    }
+    curY += 90; // Add generous vertical spacing between nodes
   });
 
-  // Mark unreached blocks in a taken chain as skipped
-  bStates = bStates.map((st, i) => {
-    if (st === 'idle' && condBlocks[i].type !== 'if' && chainTaken) return 'skipped';
-    return st;
-  });
-
-  steps.push({condBlocks, states: [...bStates], active: -1, phase: 'end', output: finalOutput, vars: allVars, msg: 'Complete', explain: 'Condition chain evaluation finished.'});
+  if(!steps.length) steps.push({nodes:[], edges:[], activeId:-1, msg:'Condition', explain:'No conditional logic found.'});
   VA.steps = steps;
 }
 
 function rndrCond(s) {
-  const {condBlocks=[], states=[], active, vars={}, allVars={}, output, phase, explain, expr, cbtype} = s;
-  const curVars = Object.keys(vars||{}).length ? vars : (allVars||{});
-  
-  let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;max-width:550px;">`;
-  
-  // Variables display at top
-  const cleanV = Object.entries(curVars).filter(([k,v]) => !k.includes('__') && !String(v).includes('function'));
-  if(cleanV.length){
-    html += `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;justify-content:center">`;
-    cleanV.slice(0,6).forEach(([k,v]) => {
-      const raw = String(v).replace(/^'|'$/g,'');
-      html += `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;text-align:center"><div style="font-size:9px;color:var(--muted);font-family:var(--mono)">${esc(k)}</div><div style="font-size:14px;font-weight:700;font-family:var(--mono);color:var(--cyan)">${esc(raw.slice(0,14))}</div></div>`;
+  const { nodes=[], edges=[], activeId, explain } = s;
+
+  // Dynamically size the canvas so it never cuts off
+  const canvasHeight = Math.max(400, (nodes.length * 90) + 100);
+
+  let html = `<div id="cond-container" style="width:100%; height:450px; overflow:auto; background:var(--surface2); border-radius:12px; border:1px solid var(--border); box-shadow:inset 0 0 15px rgba(0,0,0,0.3); margin-bottom:15px; position:relative; scroll-behavior: smooth;">`;
+
+  // Wrapper to keep things horizontally centered
+  html += `<div style="position:relative; width:600px; height:${canvasHeight}px; margin: 0 auto;">`;
+
+  // 1. Draw SVG Edges with Directional Arrows
+  html += `
+  <svg width="100%" height="100%" style="position:absolute; top:0; left:0; pointer-events:none; z-index:1">
+    <defs>
+      <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981" /></marker>
+      <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" /></marker>
+      <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" /></marker>
+    </defs>`;
+
+  edges.forEach(e => {
+     const from = nodes.find(n => n.id === e.from);
+     const to = nodes.find(n => n.id === e.to);
+     if (!from || !to) return;
+
+     const x1 = from.x, y1 = from.y + 24;
+     const x2 = to.x, y2 = to.y - 28;
+
+     const isRed = e.color === '#ef4444';
+     const isGreen = e.color === '#10b981';
+     const marker = isGreen ? 'url(#arr-green)' : (isRed ? 'url(#arr-red)' : 'url(#arr-blue)');
+     
+     // Add a flowing animation to the actively executing path
+     const dash = isRed ? 'stroke-dasharray="6,4"' : '';
+     const activeAnim = (to.id === activeId) ? `stroke-dasharray="8" stroke-dashoffset="100" style="animation: flowDash 1s linear infinite;"` : dash;
+
+     html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${e.color}" stroke-width="2.5" marker-end="${marker}" ${activeAnim} />`;
+
+     // Edge Labels (YES/NO) pushed slightly to the right to avoid overlapping the line
+     const mx = (x1+x2)/2, my = (y1+y2)/2;
+     html += `<rect x="${mx+8}" y="${my-10}" width="28" height="20" fill="var(--surface)" rx="4" stroke="${e.color}" stroke-width="1"/>`;
+     html += `<text x="${mx+22}" y="${my+4}" fill="${e.color}" font-size="10" font-family="var(--mono)" font-weight="bold" text-anchor="middle">${e.label}</text>`;
+  });
+  html += `</svg>`;
+
+  html += `<style>@keyframes flowDash { to { stroke-dashoffset: 0; } } @keyframes pulseNode { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1.05); } }</style>`;
+
+  // 2. Render The Tree Nodes
+  nodes.forEach(n => {
+     const isActive = n.id === activeId;
+     const isAction = n.type === 'ACTION';
+
+     let bg = 'var(--surface)', bc = 'var(--border2)', tc = 'var(--text)', shadow = '';
+     let anim = isActive ? 'animation: pulseNode 0.5s ease forwards;' : '';
+
+     if (isAction) {
+         bg = 'rgba(59, 130, 246, 0.15)'; bc = '#3b82f6'; tc = '#93c5fd';
+         if(isActive) shadow = `box-shadow: 0 0 20px rgba(59, 130, 246, 0.6); z-index:10;`;
+     } else {
+         if (n.state === 'true') { bg = 'rgba(16, 185, 129, 0.15)'; bc = '#10b981'; tc = '#a7f3d0'; }
+         else if (n.state === 'false') { bg = 'rgba(239, 68, 68, 0.15)'; bc = '#ef4444'; tc = '#fecaca'; }
+         if(isActive) shadow = `box-shadow: 0 0 20px ${bc}80; z-index:10;`;
+     }
+
+     const br = isAction ? '6px' : '24px';
+     const width = 240;
+
+     html += `
+     <div id="node-${n.id}" style="position:absolute; left:${n.x - (width/2)}px; top:${n.y - 24}px; width:${width}px; min-height:48px; padding:6px 12px; background:${bg}; border:2px solid ${bc}; color:${tc}; border-radius:${br}; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:var(--mono); font-size:12px; font-weight:bold; transition:all 0.4s; ${shadow} ${anim} z-index:5">
+         ${!isAction ? `<span style="font-size:9px; opacity:0.8; letter-spacing:1px; margin-bottom:3px">${n.type}</span>` : ''}
+         <span style="text-align:center; word-break:break-word">${esc(n.expr)}</span>
+     </div>`;
+  });
+
+  html += `</div></div>`;
+
+  // Explanation colors match the logic outcome
+  const actNode = nodes.find(n => n.id === activeId);
+  let expCol = '#3b82f6';
+  if (actNode) {
+      if (actNode.state === 'true' || actNode.type === 'ACTION') expCol = '#10b981';
+      if (actNode.state === 'false') expCol = '#ef4444';
+  }
+
+  html += mkExplain(explain, expCol);
+  setView(html);
+
+  // Auto-scroll the container so the active node is always visible!
+  setTimeout(() => {
+      const el = document.getElementById('cond-container');
+      const target = document.getElementById('node-' + activeId);
+      if(el && target) {
+          const topPos = target.offsetTop - 150;
+          if (topPos > 0) el.scrollTop = topPos;
+      }
+  }, 50);
+}
+
+// ── VARIABLES VISUALIZER (Fixes the crash) ───────────────────────────────
+function bldVars(userSteps) {
+  const steps = [];
+  const seen = {};
+  steps.push({state:{}, changed:{}, line:'Program begins', explain:'Variables will be created as each line runs.'});
+
+  userSteps.forEach(s => {
+    const sv = s.variables || {};
+    const changed = {};
+    Object.entries(sv).forEach(([k,v]) => {
+      if(seen[k] !== v) {
+        changed[k] = v;
+        seen[k] = v;
+      }
     });
-    html += `</div>`;
-  }
-
-  // Active Condition Evaluator (Shows the math)
-  if ((phase === 'test' || phase === 'true' || phase === 'false') && expr && cbtype !== 'else') {
-    const m = expr.match(/^(.+?)\s*(==|!=|>=|<=|>|<|\bin\b|\bnot in\b)\s*(.+)$/);
-    if (m) {
-      const lhsKey = m[1].trim(), op = m[2], rhsKey = m[3].trim();
-      const lhsVal = curVars[lhsKey] !== undefined ? String(curVars[lhsKey]).replace(/^'|'$/g,'') : lhsKey;
-      const rhsVal = curVars[rhsKey] !== undefined ? String(curVars[rhsKey]).replace(/^'|'$/g,'') : rhsKey.replace(/^'|'$/g,'');
-      const isTrue = phase === 'true', isFalse = phase === 'false';
-      const bgC = isTrue ? 'rgba(16,185,129,.1)' : isFalse ? 'rgba(239,68,68,.1)' : 'rgba(245,158,11,.1)';
-      const bdC = isTrue ? '#10b981' : isFalse ? '#f87171' : '#f59e0b';
-
-      html += `<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 16px;border-radius:10px;background:${bgC};border:2px solid ${bdC};margin-bottom:20px;transition:all .3s">
-        <div style="text-align:center"><div style="font-size:9px;color:var(--muted)">${esc(lhsKey)}</div><div style="font-size:18px;font-weight:800;font-family:var(--mono);color:#67e8f9">${esc(lhsVal)}</div></div>
-        <div style="font-size:16px;font-weight:700;color:#a78bfa;font-family:var(--mono)">${esc(op)}</div>
-        <div style="text-align:center"><div style="font-size:9px;color:var(--muted)">${esc(rhsKey)}</div><div style="font-size:18px;font-weight:800;font-family:var(--mono);color:#86efac">${esc(rhsVal)}</div></div>
-        ${isTrue ? `<div style="font-size:18px;margin-left:8px;animation:popin .3s">✅</div>` : isFalse ? `<div style="font-size:18px;margin-left:8px;animation:popin .3s">❌</div>` : `<div style="font-size:18px;margin-left:8px">⏳</div>`}
-      </div>`;
-    }
-  }
-
-  // Draw Flowchart
-  html += `<div style="display:flex;flex-direction:column;align-items:center;position:relative;">`;
-  
-  condBlocks.forEach((cb, i) => {
-    const state = states[i] || 'idle'; // 'testing' | 'true' | 'false' | 'skipped' | 'idle'
-
-    let boxColor = '#334155', bgColor = 'rgba(30,41,59,.3)', textColor = '#94a3b8';
-    if (state === 'testing') { boxColor = '#f59e0b'; bgColor = 'rgba(245,158,11,.15)'; textColor = '#fbbf24'; }
-    else if (state === 'true') { boxColor = '#10b981'; bgColor = 'rgba(16,185,129,.15)'; textColor = '#34d399'; }
-    else if (state === 'false') { boxColor = '#f87171'; bgColor = 'rgba(239,68,68,.15)'; textColor = '#f87171'; }
-    else if (state === 'skipped') { boxColor = '#1e293b'; bgColor = 'rgba(15,23,42,.2)'; textColor = '#475569'; }
-
-    html += `<div style="display:flex;align-items:center;width:340px;position:relative;opacity:${state==='skipped'?'0.3':'1'};transition:all .3s">`;
-
-    // Condition Box (Diamond substitute)
-    html += `<div style="width:160px;padding:12px;border:2px solid ${boxColor};background:${bgColor};border-radius:8px;text-align:center;font-family:var(--mono);font-size:12px;color:${textColor};z-index:2;position:relative;transition:all .3s;${state==='testing'?'box-shadow:0 0 15px '+boxColor+'44;transform:scale(1.05)':''}">
-        <div style="font-size:9px;opacity:0.7;margin-bottom:4px;text-transform:uppercase">${cb.type}</div>
-        ${esc(cb.expr || 'else')}
-    </div>`;
-
-    // Arrow pointing right (True path)
-    const showTruePath = state === 'testing' || state === 'true';
-    if (showTruePath) {
-        const arrowColor = state === 'true' ? '#10b981' : '#475569';
-        html += `<div style="flex:1;height:2px;background:${arrowColor};position:relative;z-index:1;display:flex;align-items:center;justify-content:center;transition:all .3s">
-            <span style="font-size:9px;color:${arrowColor};background:var(--bg);padding:0 4px;font-weight:bold;margin-top:-16px;">TRUE</span>
-            <div style="position:absolute;right:0;top:-4px;width:10px;height:10px;border-top:2px solid ${arrowColor};border-right:2px solid ${arrowColor};transform:rotate(45deg);"></div>
-        </div>`;
-
-        // Execute Block
-        html += `<div style="width:100px;padding:10px;border:2px dashed ${state==='true'?'#10b981':'#475569'};background:${state==='true'?'rgba(16,185,129,.1)':'transparent'};border-radius:8px;text-align:center;font-family:var(--mono);font-size:11px;color:${state==='true'?'#34d399':'#64748b'};transition:all .3s;${state==='true'?'transform:scale(1.05)':''}">
-            Execute
-        </div>`;
-    }
-    html += `</div>`;
-
-    // Arrow pointing down (False path)
-    if (i < condBlocks.length - 1 && state !== 'true' && state !== 'skipped') {
-        const downColor = state === 'false' ? '#f87171' : '#334155';
-        const lbl = state === 'false' ? 'FALSE' : '';
-        html += `<div style="width:340px;display:flex;justify-content:flex-start;">
-            <div style="width:2px;height:24px;background:${downColor};position:relative;display:flex;align-items:center;justify-content:center;margin-left:80px;transition:all .3s">
-               ${lbl ? `<span style="font-size:9px;color:${downColor};background:var(--bg);padding:2px;margin-left:42px;font-weight:bold;border-radius:4px">FALSE</span>` : ''}
-               <div style="position:absolute;bottom:0;left:-4px;width:10px;height:10px;border-bottom:2px solid ${downColor};border-right:2px solid ${downColor};transform:rotate(45deg);"></div>
-            </div>
-        </div>`;
+    const isClean = Object.keys(changed).every(k => !['args','kwargs'].includes(k) && !String(seen[k]).includes('function'));
+    if (Object.keys(changed).length && isClean || s.output) {
+      steps.push({
+        state: {...seen},
+        changed,
+        output: s.output,
+        line: s.line_text ? s.line_text.trim() : '',
+        explain: Object.keys(changed).length ? `Updated variables: ${Object.keys(changed).join(', ')}` : 'Printed output.'
+      });
     }
   });
-  
-  html += `</div>`;
-  html += `<div style="margin-top:20px;width:100%;">` + mkExplain(explain, phase==='true'?'#10b981':phase==='false'?'#f87171':'#f59e0b') + `</div>`;
-  if(output) html += `<div style="margin-top:10px;width:100%;">` + mkOutput(output) + `</div>`;
+  VA.steps = steps;
+}
+
+function rndrVars(s) {
+  const {state={}, changed={}, explain, output} = s;
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:15px;width:100%;max-width:500px">`;
+
+  if (Object.keys(state).length) {
+      html += `<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center; margin-bottom:20px;">`;
+      Object.entries(state).forEach(([k, v]) => {
+          const isNew = k in changed;
+          const val = String(v).replace(/^'|'$/g, '');
+          html += `
+          <div style="background:var(--surface2); border:2px solid ${isNew ? 'var(--cyan)' : 'var(--border2)'}; border-radius:10px; padding:10px 24px; text-align:center; transition:all 0.3s; ${isNew ? 'transform:scale(1.1); box-shadow:0 0 15px rgba(34,211,238,0.3)' : ''}">
+              <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;margin-bottom:4px">${esc(k)}</div>
+              <div style="font-size:20px;font-weight:800;color:${isNew ? 'var(--cyan)' : 'var(--text)'};font-family:var(--mono)">${esc(val)}</div>
+          </div>`;
+      });
+      html += `</div>`;
+  }
+
+  html += mkExplain(explain || 'Tracing variables...', 'var(--blue)');
+  if(output) html += mkOutput(output);
   html += `</div>`;
   setView(html);
 }
+
 // ── RECURSION (SCROLLABLE SVG CALL TREE) ───────────────────────────────────
 // ── RECURSION (SCROLLABLE SVG CALL TREE) ───────────────────────────────────
-function bldRecursion(tSteps, code){
-  const fnMatch = code.match(/def\s+(\w+)\s*\(/);
-  const fname = fnMatch ? fnMatch[1] : 'f';
-  
+// ── RECURSION (Scrollable Decision Tree + Auto-Layout) ─────────────────
+// ── RECURSION BUILDER (Fixed Strict Trace Check) ─────────────────────────
+function bldRecursion(tSteps, code) {
+  const steps = [];
   const nodes = [];
-  const stack = []; 
-  let nodeId = 0;
-  let animSteps = [];
-  
+  const edges = [];
+  const stack = [];
+  let nextId = 0;
+
+  // We relaxed the strict name check here so it catches all call events
   tSteps.forEach(s => {
-    if(s.event === 'call' && s.line_text && s.line_text.includes('def ')){
-      const args = Object.entries(s.variables || {})
-        .filter(([k]) => !['self','__builtins__'].includes(k) && !String(s.variables[k]).includes('function'))
-        .map(([k,v]) => `${k}=${String(v).replace(/'/g,'')}`)
-        .join(', ');
-      const node = {
-        id: nodeId++, label: `${fname}(${args})`, args,
-        parent: stack.length > 0 ? stack[stack.length-1] : -1,
-        children: [], ret: null, depth: stack.length,
-        isBase: false, status: 'pending', x: 0, y: 0 // Initialize to 0
-      };
-      if(node.parent >= 0) nodes[node.parent].children.push(node.id);
-      nodes.push(node);
-      stack.push(node.id);
-    } else if(s.event === 'return' && stack.length > 0){
-      const nodeIdx = stack.pop();
-      const rv = Object.values(s.variables || {}).find(v => /^-?\d+$/.test(String(v).trim()));
-      if(rv !== undefined) nodes[nodeIdx].ret = String(rv);
-      nodes[nodeIdx].status = 'returned';
-      nodes[nodeIdx].isBase = nodes[nodeIdx].depth === nodes.filter(n=>n.depth===nodes[nodeIdx].depth).length > 1 ? false : nodes[nodeIdx].children.length === 0;
-    }
-  });
-  
-  if(!nodes.length){ bldGeneral(tSteps.filter(s=>s.event==='line'&&s.line_text)); return; }
-  
-  const levelGap = 80, nodeGap = 65;
-  const levels = {};
-  nodes.forEach(n => {
-    if(!levels[n.depth]) levels[n.depth] = [];
-    levels[n.depth].push(n.id);
-  });
-  
-  // Recursive layout algorithm
-  function assignPositions(rId, x, depth) {
-    const node = nodes[rId];
-    node.y = depth * levelGap + 30;
-    if(node.children.length === 0){
-      node.x = x;
-      return nodeGap;
-    }
-    let totalWidth = 0;
-    let childX = x;
-    node.children.forEach(cid => {
-      const w = assignPositions(cid, childX, depth + 1);
-      childX += w;
-      totalWidth += w;
-    });
-    node.x = x + totalWidth/2 - nodeGap/2;
-    return Math.max(totalWidth, nodeGap);
-  }
-  
-  // FIX: Handle MULTIPLE roots (like calling fib() inside a loop)
-  let currentX = 0;
-  const roots = nodes.filter(n => n.parent === -1);
-  roots.forEach(r => {
-      const w = assignPositions(r.id, currentX, 0);
-      currentX += w + 40; // Add a horizontal gap between separate trees
-  });
-  
-  const minX = Math.min(...nodes.map(n=>n.x));
-  nodes.forEach(n => { n.x = (n.x - minX) + 40; }); // Shift all to positive coordinates
-  
-  animSteps.push({ revealed: [0], active: 0, returning: -1, nodes, msg: `Calling ${nodes[0]?.label}`, explain: `Program starts by calling ${fname}(). A stack frame is created.` });
-  
-  let revealed = [0];
-  let revIdx = 1;
-  tSteps.forEach((s, si) => {
-    if(s.event === 'call' && s.line_text && s.line_text.includes('def ') && revIdx < nodes.length){
-      revealed = [...revealed, revIdx];
-      const n = nodes[revIdx];
-      const isBase = n.children.length === 0;
-      animSteps.push({ 
-        revealed: [...revealed], active: revIdx, returning: -1, nodes,
-        msg: `Call: ${n.label}`,
-        explain: isBase ? `Base case reached! ${n.label} will return directly.` : `Recursive call! Stack grows deeper (depth ${n.depth}).`
-      });
-      revIdx++;
-    } else if(s.event === 'return' && s.line_text && revIdx > 0){
-      const retNode = nodes.find(n => n.ret !== null && !animSteps.some(as => as.returning === n.id));
-      if(retNode){
-        animSteps.push({
-          revealed: [...revealed], active: retNode.id, returning: retNode.id, nodes,
-          msg: `Return: ${retNode.label} = ${retNode.ret}`,
-          explain: `${retNode.label} completes and returns ${retNode.ret} to its caller.`
-        });
+      if (s.event === 'call') {
+          let argStr = '';
+          if (s.variables) {
+             argStr = Object.entries(s.variables)
+                .filter(([k]) => k !== 'return' && !k.startsWith('__'))
+                .map(([k,v]) => `${k}=${v}`).join(', ');
+          }
+
+          const node = {
+              id: nextId++,
+              label: `${s.func_name || s.name || 'func'}(${argStr})`,
+              short: argStr.split('=')[1] || argStr || '?',
+              depth: stack.length,
+              children: [],
+              status: 'active',
+              retVal: '?'
+          };
+
+          if (stack.length > 0) {
+              const parent = stack[stack.length - 1];
+              parent.children.push(node.id);
+              edges.push({ from: parent.id, to: node.id });
+          }
+
+          nodes.push(node);
+          stack.push(node);
+
+          steps.push({
+              nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)),
+              activeId: node.id,
+              msg: `▶ Call: ${node.label}`,
+              explain: `Entering recursive call for ${node.label}.`
+          });
       }
-    }
+      else if (s.event === 'return' && stack.length > 0) {
+          const node = stack.pop();
+          let rv = '?';
+          if (s.variables && s.variables['return'] !== undefined) rv = s.variables['return'];
+          else if (s.return_value !== undefined) rv = s.return_value;
+
+          node.retVal = rv;
+          node.status = 'done';
+
+          steps.push({
+              nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)),
+              activeId: node.id,
+              msg: `🔙 Return: ${node.retVal}`,
+              explain: `${node.label} completes and returns ${node.retVal} to its caller.`
+          });
+      }
   });
-  
-  animSteps.push({ revealed: nodes.map(n=>n.id), active: -1, returning: -1, nodes,
-    msg: `${fname}() calls finished!`, explain: `All recursive executions have completed.` });
-  
-  VA.steps = animSteps;
+
+  // Auto-Layout Math
+  let currentLeafX = 0;
+  const xSpacing = 80; 
+  const ySpacing = 90; 
+
+  function calculateNodePositions(nodeId) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      if (node.children.length === 0) {
+          node.x = currentLeafX;
+          currentLeafX += xSpacing;
+      } else {
+          node.children.forEach(calculateNodePositions);
+          const firstChild = nodes.find(n => n.id === node.children[0]);
+          const lastChild = nodes.find(n => n.id === node.children[node.children.length - 1]);
+          node.x = (firstChild.x + lastChild.x) / 2;
+      }
+      node.y = node.depth * ySpacing;
+  }
+
+  const roots = nodes.filter(n => !edges.some(e => e.to === n.id));
+  roots.forEach(root => calculateNodePositions(root.id));
+
+  steps.forEach(step => {
+      step.nodes.forEach(sn => {
+          const orig = nodes.find(n => n.id === sn.id);
+          if (orig) { sn.x = orig.x; sn.y = orig.y; }
+      });
+  });
+
+  if(!steps.length) steps.push({nodes:[], edges:[], msg:'Recursion', explain:'No recursion detected.'});
+  VA.steps = steps;
 }
 
-function rndrRec(s) {
-  const { revealed=[], active, returning, nodes=[], explain } = s;
-  if(!nodes.length){ setView('<div style="color:var(--dim);padding:20px">No recursion data</div>'); return; }
-  
-  const minX = Math.min(...nodes.map(n=>n.x || 0));
-  const maxX = Math.max(...nodes.map(n=>n.x || 0));
-  const maxY = Math.max(...nodes.map(n=>n.y || 0));
-  
-  // Dynamically size SVG based on tree width, force minimums
-  const svgW = Math.max(maxX - minX + 100, 400);
-  const svgH = maxY + 80;
-  const offsetX = 50 - minX; 
-  
-  let svg = `<svg width="${svgW}" height="${svgH}" style="min-width:${svgW}px; min-height:${svgH}px; overflow:visible; display:block; margin:auto;">`;
-  
-  // Draw Curved Edges
+function rndrRecursion(s) {
+  const { nodes=[], edges=[], activeId, msg, explain } = s;
+
+  // 1. Calculate bounding box for the tree to set dynamic SVG size
+  let minX = 0, maxX = 100, maxY = 100;
   nodes.forEach(n => {
-    if(!revealed.includes(n.id)) return;
-    if(n.parent >= 0 && revealed.includes(n.parent)){
-      const p = nodes[n.parent];
-      const isActive = n.id === active || n.id === returning;
-      const color = isActive ? '#00e676' : '#334155';
-      const stroke = isActive ? 2.5 : 1.5;
-      const dash = n.ret !== null ? 'none' : '4,4'; 
-      // Bezier curves
-      svg += `<path d="M ${p.x + offsetX} ${p.y + 22} C ${p.x + offsetX} ${p.y + 50}, ${n.x + offsetX} ${n.y - 50}, ${n.x + offsetX} ${n.y - 22}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-dasharray="${dash}" opacity="0.8" style="transition:all 0.3s ease;"/>`;
-    }
+      if (n.x < minX) minX = n.x;
+      if (n.x > maxX) maxX = n.x;
+      if (n.y > maxY) maxY = n.y;
   });
-  
+
+  const padding = 60;
+  // Canvas width expands infinitely based on how wide the tree gets!
+  const canvasWidth = Math.max(600, (maxX - minX) + (padding * 2));
+  const canvasHeight = Math.max(350, maxY + (padding * 2));
+
+  // Offset pushes all nodes to the right so nothing gets cut off on the left border
+  const offsetX = Math.abs(Math.min(0, minX)) + padding;
+  const offsetY = padding;
+
+  // 2. Build the Scrollable Window (The Moving Viewport)
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;gap:15px">`;
+  html += `<div id="rec-container" style="width:100%; height:450px; overflow:auto; background:var(--surface2); border:1px solid var(--border); border-radius:12px; box-shadow:inset 0 0 20px rgba(0,0,0,0.4); position:relative; scroll-behavior: smooth;">`;
+  html += `<style>@keyframes edgeFlow { to { stroke-dashoffset: -10; } }</style>`;
+
+  // 3. Draw the SVG Canvas
+  html += `<svg width="${canvasWidth}" height="${canvasHeight}" style="min-width:100%; display:block;">`;
+
+  // Draw Edges (Connections)
+  edges.forEach(e => {
+      const from = nodes.find(n => n.id === e.from);
+      const to = nodes.find(n => n.id === e.to);
+      if(!from || !to) return;
+
+      const x1 = from.x + offsetX, y1 = from.y + offsetY;
+      const x2 = to.x + offsetX, y2 = to.y + offsetY;
+      const isActive = (to.id === activeId || from.id === activeId);
+
+      const color = isActive ? '#10b981' : 'rgba(148, 163, 184, 0.3)';
+      const width = isActive ? '3' : '2';
+      const dash = isActive ? 'stroke-dasharray="5,5" style="animation: edgeFlow 1s linear infinite"' : '';
+
+      html += `<line x1="${x1}" y1="${y1+20}" x2="${x2}" y2="${y2-20}" stroke="${color}" stroke-width="${width}" ${dash} transition="all 0.4s"/>`;
+  });
+
   // Draw Nodes
   nodes.forEach(n => {
-    if(!revealed.includes(n.id)) return;
-    const isActive = n.id === active;
-    const isReturning = n.id === returning;
-    const isDone = n.ret !== null;
-    
-    let fill = '#1e293b', stroke = '#475569', tc = '#94a3b8';
-    if (isReturning) { fill = 'rgba(0,230,118,.2)'; stroke = '#00e676'; tc = '#00e676'; }
-    else if (isActive) { fill = 'rgba(255,171,64,.2)'; stroke = '#ffab40'; tc = '#ffab40'; }
-    else if (isDone && n.children.length === 0) { fill = 'rgba(20,184,166,.15)'; stroke = '#14b8a6'; tc = '#14b8a6'; } 
-    else if (isDone) { fill = 'rgba(68,138,255,.15)'; stroke = '#448aff'; tc = '#82b1ff'; } 
-    
-    const nx = n.x + offsetX;
-    const ny = n.y;
-    
-    // Glow effect
-    if (isActive || isReturning) {
-       svg += `<circle cx="${nx}" cy="${ny}" r="28" fill="${stroke}33" style="filter:blur(4px)"/>`;
-    }
-    
-    svg += `<circle cx="${nx}" cy="${ny}" r="22" fill="${fill}" stroke="${stroke}" stroke-width="2" style="transition:all 0.3s ease;"/>`;
-    
-    const argText = n.args.split('=').pop() || '?';
-    svg += `<text x="${nx}" y="${ny+4}" text-anchor="middle" font-family="monospace" font-size="12" font-weight="700" fill="${tc}">${esc(argText)}</text>`;
-    
-    // Return values
-    if (n.ret !== null) {
-      svg += `<rect x="${nx-18}" y="${ny+24}" width="36" height="16" rx="8" fill="${stroke}22" stroke="${stroke}" stroke-width="1"/>`;
-      svg += `<text x="${nx}" y="${ny+35}" text-anchor="middle" font-family="monospace" font-size="10" font-weight="bold" fill="${stroke}">${esc(n.ret)}</text>`;
-    }
-    
-    // Label root
-    if (n.depth === 0) {
-      svg += `<text x="${nx}" y="${ny-28}" text-anchor="middle" font-family="monospace" font-size="11" font-weight="bold" fill="#8b5cf6">${esc(n.label.split('(')[0])}</text>`;
-    }
+      const isActive = n.id === activeId;
+      const isDone = n.status === 'done';
+      const x = n.x + offsetX;
+      const y = n.y + offsetY;
+
+      let bg = 'var(--surface)', bc = 'var(--border2)', tc = 'var(--text)', shadow = '';
+
+      if (isActive) {
+          bg = 'rgba(16, 185, 129, 0.2)'; bc = '#10b981'; tc = '#10b981';
+          shadow = `filter="drop-shadow(0 0 10px rgba(16,185,129,0.5))"`;
+      } else if (isDone) {
+          bg = 'rgba(59, 130, 246, 0.1)'; bc = '#3b82f6'; tc = '#93c5fd';
+      }
+
+      html += `<circle cx="${x}" cy="${y}" r="22" fill="${bg}" stroke="${bc}" stroke-width="2.5" ${shadow} style="transition: all 0.4s ease;"/>`;
+      html += `<text x="${x}" y="${y+5}" fill="${tc}" font-family="var(--mono)" font-weight="bold" font-size="13" text-anchor="middle">${esc(String(n.short))}</text>`;
+      html += `<text x="${x}" y="${y-30}" fill="var(--muted)" font-family="var(--mono)" font-size="11" font-weight="bold" text-anchor="middle">${esc(n.label.split('(')[0])}</text>`;
+
+      if (isDone && n.retVal !== '?') {
+          html += `<rect x="${x-18}" y="${y+26}" width="36" height="18" rx="4" fill="var(--surface)" stroke="${bc}" stroke-width="1"/>`;
+          html += `<text x="${x}" y="${y+39}" fill="${bc}" font-family="var(--mono)" font-size="11" font-weight="bold" text-anchor="middle">${esc(String(n.retVal))}</text>`;
+      }
   });
-  
-  svg += `</svg>`;
-  
-  // The SCROLLABLE Viewport Container
-  setView(`<div style="display:flex;flex-direction:column;align-items:center;width:100%;height:100%;">
-     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;width:100%;max-width:600px;height:340px;overflow:auto;box-shadow:inset 0 0 10px rgba(0,0,0,0.5);position:relative;">
-         <div style="min-width:${svgW}px; min-height:${svgH}px; padding:20px; display:flex; justify-content:center;">
-            ${svg}
-         </div>
-     </div>
-     <div style="margin-top:14px;width:100%;max-width:600px">${mkExplain(explain, '#ffab40')}</div>
-  </div>`);
+
+  html += `</svg></div>`;
+  html += mkExplain(explain, 'var(--green)');
+  html += `</div>`;
+
+  setView(html);
+
+  // 4. Auto-Scroll Logic: Keeps the active node centered in the moving bar!
+  setTimeout(() => {
+      const actNode = nodes.find(n => n.id === activeId);
+      if (actNode) {
+         const cvs = document.getElementById('rec-container');
+         if (cvs) {
+             const targetX = actNode.x + offsetX - (cvs.clientWidth / 2);
+             const targetY = actNode.y + offsetY - (cvs.clientHeight / 2);
+             cvs.scrollTo({ left: targetX, top: targetY, behavior: 'smooth' });
+         }
+      }
+  }, 50);
 }
+
 function bldString(code, tSteps){
   const tm=code.match(/text\s*=\s*["']([^"']+)["']/); const text=tm?tm[1]:'hello';
   const chars=[...text]; const steps=[]; const freq={};
@@ -1487,82 +1541,81 @@ function bldGCD(tSteps){
 // ── PATTERN (MATRIX GRID VISUALIZER) ──────────────────────────────────────
 // ── PATTERN (MATRIX GRID VISUALIZER - STUDENT FRIENDLY) ─────────────────────
 // ── PATTERN (FIXED GRID & PARALLEL ITERATION VISUALIZER) ─────────────────────
+// ── PATTERN (FIXED MATRIX & COORDINATE TRACKER) ──────────────────────────
+// ── PATTERN (FIXED MATRIX & COORDINATE TRACKER) ──────────────────────────
+// ── PATTERN (FIXED MATRIX & COORDINATE TRACKER) ──────────────────────────
 function bldPattern(stdout, code) {
-  // Determine final grid size
-  const lines = (stdout || '').split('\n');
-  if(lines.length && lines[lines.length-1] === '') lines.pop();
-  const totalRows = lines.length || 1;
-  const maxCols = Math.max(...lines.map(l => l.length), 1);
-  
   const tSteps = VA._patSteps || [];
   const steps = [];
-  const grid = {}; // Stores chars by 'r,c' coordinate
   
-  // STEP 1: Define the empty grid
+  // Determine the final grid size accurately
+  const finalLines = (stdout || '').replace(/\n$/, '').split('\n');
+  const totalRows = Math.max(1, finalLines.length);
+  const maxCols = Math.max(1, ...finalLines.map(l => l.length));
+
   steps.push({
     grid: {}, totalRows, maxCols, activeR: 0, activeC: 0, newCells: [], vars: {},
-    msg: "📐 Empty Grid Created",
-    explain: `We define a grid of ${totalRows} rows and ${maxCols} columns. The outer loop will control the row (i), and inner loops control the columns (j).`
+    msg: "📐 Setup Pattern Canvas",
+    explain: `We define an empty grid of ${totalRows} rows and ${maxCols} columns.`
   });
 
   let r = 0, c = 0;
-  
+  const grid = {};
+
   tSteps.forEach(s => {
-    if(s.event !== 'line' || !s.line_text) return;
+    if (s.event !== 'line') return;
     const vars = s.variables || {};
     
-    // Extract common loop variables to show parallel state
+    // Extract loop variables
     const loopVars = Object.fromEntries(
       Object.entries(vars).filter(([k]) => ['i','j','k','n','row','col'].includes(k))
     );
     const varStr = Object.entries(loopVars).map(([k,v])=>`${k}=${v}`).join(', ');
 
-    // Handle Printing (Filling the Grid)
-    if(s.output) {
-      const outStr = s.output;
-      const newCells = [];
-      let hasNewline = false;
+    // If there is any output from this step, print it directly!
+    if (s.output) {
+      const newChunk = String(s.output); 
 
-      for(let char of outStr) {
-        if(char === '\n') {
-          r++; 
-          c = 0;
-          hasNewline = true;
-        } else {
-          grid[`${r},${c}`] = char;
-          newCells.push(`${r},${c}`);
-          c++;
-        }
-      }
+      if (newChunk.length > 0) {
+          const newCells = [];
+          let hasNewline = false;
 
-      let explainStr = "";
-      if(hasNewline && newCells.length === 0) {
-         explainStr = `print() without end="" drops the cursor to the next line. Now starting row ${r}.`;
-      } else if (hasNewline && newCells.length > 0) {
-         explainStr = `Printed characters and dropped to row ${r}.`;
-      } else {
-         explainStr = `Printed '${outStr === ' ' ? '(space)' : outStr}' at column ${c-1}. Notice the variables: [${varStr}].`;
-      }
+          for (let char of newChunk) {
+            if (char === '\n') {
+              r++; 
+              c = 0;
+              hasNewline = true;
+            } else {
+              grid[`${r},${c}`] = char;
+              newCells.push(`${r},${c}`);
+              c++;
+            }
+          }
 
-      steps.push({
-        grid: {...grid}, totalRows, maxCols, activeR: r, activeC: c, newCells, vars: {...vars},
-        msg: `✏️ Printing to Grid`,
-        explain: explainStr
-      });
-      
-    } else {
-      // Handle Loop Iteration Steps (No output yet, just variable updates)
-      if(s.line_text.includes('for ') || s.line_text.includes('while ')) {
+          let explainStr = "";
+          if (hasNewline && newCells.length === 0) {
+             explainStr = `print() drops the cursor down to row ${r}.`;
+          } else if (newCells.length > 0) {
+             const printed = newChunk.replace(/\n/g, '');
+             explainStr = `Printed '${printed === ' ' ? '(space)' : printed}' at row ${r}. Notice the loop variables: [${varStr}].`;
+          }
+
           steps.push({
-              grid: {...grid}, totalRows, maxCols, activeR: r, activeC: c, newCells: [], vars: {...vars},
-              msg: `🔁 Loop Iteration`,
-              explain: `Checking loop variables: [${varStr}].`
+            grid: {...grid}, totalRows, maxCols, activeR: r, activeC: c, newCells, vars: {...loopVars},
+            msg: `✏️ Printing to Grid`,
+            explain: explainStr || "Output printed."
           });
       }
+    } else if (s.line_text && (s.line_text.includes('for ') || s.line_text.includes('while '))) {
+        // Track the loops preparing to print
+        steps.push({
+            grid: {...grid}, totalRows, maxCols, activeR: r, activeC: c, newCells: [], vars: {...loopVars},
+            msg: `🔁 Loop Update`,
+            explain: `Variables updated: [${varStr}]. Getting ready to print.`
+        });
     }
   });
 
-  // Final Step
   steps.push({
      grid: {...grid}, totalRows, maxCols, activeR: -1, activeC: -1, newCells: [], vars: {}, 
      msg: "🎉 Pattern Complete!", 
@@ -1571,85 +1624,228 @@ function bldPattern(stdout, code) {
   
   VA.steps = steps;
 }
+// ── LOOP VISUALIZER (Iteration Tracker) ──────────────────────────────────
+function bldLoop(userSteps) {
+  const steps = [];
+  let iterCount = 0;
+
+  userSteps.forEach(s => {
+     if(s.event === 'line' && s.line_text) {
+        const text = s.line_text.trim();
+        const vars = s.variables || {};
+
+        if (text.startsWith('for ') || text.startsWith('while ')) {
+            iterCount++;
+            steps.push({
+                iter: iterCount, text, vars: {...vars}, isHeader: true,
+                msg: `🔄 Loop Iteration ${iterCount}`,
+                explain: `Evaluating loop condition: ${text}`
+            });
+        } else if (iterCount > 0) {
+            steps.push({
+                iter: iterCount, text, vars: {...vars}, isHeader: false, output: s.output,
+                msg: `⚙️ Inside Loop`,
+                explain: `Executing: ${text}`
+            });
+        }
+     }
+  });
+  if(!steps.length) steps.push({msg:'Loop', explain:'No loops detected.'});
+  VA.steps = steps;
+}
+
+function rndrLoop(s) {
+  const { iter, text, vars, isHeader, explain, output } = s;
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;gap:15px;padding-bottom:20px;">`;
+
+  // Iteration Badge
+  html += `<div style="background:var(--purple); color:#fff; padding:8px 24px; border-radius:20px; font-weight:bold; letter-spacing:1px; font-size:14px; box-shadow:0 0 15px rgba(139, 92, 246, 0.4)">ITERATION ${iter || 0}</div>`;
+
+  // Executing Line Box
+  const bg = isHeader ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+  const bc = isHeader ? '#8b5cf6' : '#10b981';
+  html += `<div style="background:${bg}; border:2px solid ${bc}; padding:15px; border-radius:10px; font-family:var(--mono); font-size:16px; color:var(--text); width:100%; max-width:450px; text-align:center; transition:all 0.3s;">
+      ${esc(text)}
+  </div>`;
+
+  // Live Variable Tracker
+  if (vars && Object.keys(vars).length) {
+      html += `<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:10px">`;
+      Object.entries(vars).forEach(([k,v]) => {
+          if(k.startsWith('__')) return; // Hide python internals
+          const val = String(v).replace(/^'|'$/g, ''); // Clean up quotes
+          html += `<div style="background:var(--surface2); border:1px solid var(--border2); padding:8px 20px; border-radius:8px; text-align:center; box-shadow:0 4px 6px rgba(0,0,0,0.15)">
+             <div style="font-size:10px; color:var(--muted); text-transform:uppercase">${esc(k)}</div>
+             <div style="font-size:18px; font-weight:bold; color:var(--cyan); font-family:var(--mono)">${esc(val)}</div>
+          </div>`;
+      });
+      html += `</div>`;
+  }
+
+  html += mkExplain(explain, bc);
+  if(output) html += mkOutput(output);
+  html += `</div>`;
+  setView(html);
+}
+
+// ── STRING VISUALIZER (Tape Reader & Frequency Counter) ──────────────────
+function bldString(code, userSteps) {
+    const steps = [];
+    let targetString = "";
+    let freqMap = {};
+
+    // 1. Scan for the main string we are working on
+    userSteps.forEach(s => {
+        const vars = s.variables || {};
+        Object.values(vars).forEach(v => {
+            if (typeof v === 'string' && v.length > targetString.length && !v.includes('<')) {
+                targetString = v.replace(/^'|'$/g, ""); // Clean quotes
+            }
+        });
+    });
+
+    // 2. Build the steps
+    userSteps.forEach(s => {
+        if(s.event !== 'line') return;
+        const vars = s.variables || {};
+        
+        // Find the active character being scanned
+        let activeChar = (vars['ch'] || vars['char'] || vars['c'] || '').replace(/^'|'$/g, "");
+        let activeIdx = vars['i'] !== undefined ? parseInt(vars['i']) : -1;
+
+        // Try to find a dictionary tracking frequencies
+        Object.entries(vars).forEach(([k, v]) => {
+            if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+                freqMap = v;
+            }
+        });
+
+        steps.push({
+            str: targetString, activeChar, activeIdx,
+            vars: {...vars}, freq: {...freqMap}, output: s.output,
+            msg: `🔤 String Processing`,
+            explain: `Executing: ${s.line_text ? s.line_text.trim() : ''}`
+        });
+    });
+
+    if(!steps.length) steps.push({str:'', msg:'String', explain:'No string operations.'});
+    VA.steps = steps;
+}
+
+function rndrString(s) {
+    const { str, activeChar, activeIdx, freq, vars, explain, output } = s;
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;gap:15px;padding-bottom:20px;">`;
+
+    // 1. The String Tape
+    if (str) {
+        html += `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;padding:15px;background:var(--surface2);border-radius:12px;border:1px solid var(--border);max-width:100%">`;
+        for(let i=0; i<str.length; i++) {
+            const c = str[i];
+            
+            // Highlight if this is the character the loop is currently looking at
+            const isActive = (activeIdx === i) || (activeChar && c === activeChar);
+            const bg = isActive ? 'rgba(245, 158, 11, 0.2)' : 'var(--surface)';
+            const bc = isActive ? '#f59e0b' : 'var(--border2)';
+            const tc = isActive ? '#fbbf24' : 'var(--text)';
+            const shadow = isActive ? 'box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); transform: scale(1.15); z-index:10;' : '';
+
+            html += `<div style="position:relative; width:40px; height:44px; border-radius:6px; border:2px solid ${bc}; background:${bg}; color:${tc}; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:20px; font-weight:bold; transition:all 0.3s; ${shadow}">
+                ${c === ' ' ? '␣' : esc(c)}
+                <div style="position:absolute; bottom:-20px; font-size:10px; color:var(--muted)">${i}</div>
+            </div>`;
+        }
+        html += `</div>`;
+    }
+
+    // 2. Frequency / Dictionary Tracker
+    if (freq && Object.keys(freq).length) {
+        html += `<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:10px;">`;
+        Object.entries(freq).forEach(([k,v]) => {
+            const cleanKey = k.replace(/^'|'$/g, "");
+            const isNew = cleanKey === activeChar;
+            html += `<div style="background:var(--surface2); border:1px solid ${isNew?'#10b981':'var(--border2)'}; padding:8px 16px; border-radius:8px; text-align:center; transition:all 0.3s; ${isNew?'box-shadow:0 0 12px rgba(16,185,129,0.4); transform:scale(1.1)':''}">
+                <div style="font-size:11px; color:var(--muted); font-family:var(--mono)">${esc(cleanKey)}</div>
+                <div style="font-size:18px; font-weight:bold; color:${isNew?'#10b981':'var(--cyan)'}">${esc(String(v))}</div>
+            </div>`;
+        });
+        html += `</div>`;
+    }
+
+    html += mkExplain(explain, 'var(--amber)');
+    if(output) html += mkOutput(output);
+    html += `</div>`;
+    setView(html);
+}
+
 
 function rndrPattern(s) {
   const {grid, totalRows, maxCols, activeR, newCells, vars, explain} = s;
 
-  let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;max-width:600px;gap:15px;padding-bottom:15px">`;
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;gap:15px;padding-bottom:20px">`;
 
-  // 1. Parallel Variable Tracking (Shows i, j, k etc. above the grid)
-  const loopVars = Object.entries(vars).filter(([k]) => ['i','j','k','n','row','col'].includes(k));
-  if(loopVars.length) {
-    html += `<div style="display:flex;gap:12px;justify-content:center;margin-bottom:5px;flex-wrap:wrap;">`;
+  // 1. Live Variable Tracking Cards (Shows i, j above the grid)
+  const loopVars = Object.entries(vars);
+  if(loopVars.length > 0) {
+    html += `<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:5px;">`;
     loopVars.forEach(([k,v]) => {
-       html += `<div style="background:var(--surface2);border:2px solid var(--border2);border-radius:10px;padding:6px 18px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.2)">
+       html += `<div style="background:var(--surface2);border:2px solid var(--border2);border-radius:10px;padding:6px 20px;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,0.2)">
          <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase">${esc(k)}</div>
          <div style="font-size:20px;font-weight:800;color:var(--cyan);font-family:var(--mono)">${esc(String(v))}</div>
        </div>`;
     });
     html += `</div>`;
   } else {
-    // Spacer if no variables
-    html += `<div style="height:48px;"></div>`;
+    html += `<div style="height:56px;"></div>`; // Spacer to prevent grid jumping
   }
 
-  // 2. The Fixed Matrix Grid
-  html += `<div style="display:flex;flex-direction:column;gap:4px;background:var(--surface2);padding:18px;border-radius:12px;border:1px solid var(--border);overflow:auto;max-width:100%;box-shadow:inset 0 0 12px rgba(0,0,0,0.3)">`;
+  // 2. The Matrix Canvas (Wrapped in overflow so it handles massive patterns gracefully)
+  html += `<div style="max-width:100%; overflow:auto; padding:5px;">`;
+  html += `<div style="display:flex;flex-direction:column;gap:4px;background:var(--surface2);padding:18px;border-radius:12px;border:1px solid var(--border);box-shadow:inset 0 0 15px rgba(0,0,0,0.4); width:fit-content; margin:0 auto;">`;
 
-  // Draw Column headers (0, 1, 2...)
-  if(maxCols > 0 && maxCols < 30) {
-      html += `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">`;
+  // Draw Column Headers (0, 1, 2...)
+  if(maxCols > 0 && maxCols <= 40) {
+      html += `<div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;">`;
       html += `<div style="width:24px;"></div>`; // Corner spacer
       for(let c=0; c<maxCols; c++) {
-          html += `<div style="width:32px;text-align:center;font-size:9px;color:var(--dim);font-family:var(--mono)">${c}</div>`;
+          html += `<div style="width:32px;text-align:center;font-size:10px;color:var(--dim);font-family:var(--mono);font-weight:bold">${c}</div>`;
       }
       html += `</div>`;
   }
 
-  // Draw Rows
+  // Draw Matrix Rows & Cells
   for(let r=0; r<totalRows; r++) {
      const isActRow = r === activeR;
      html += `<div style="display:flex;gap:4px;align-items:center">`;
      
      // Row indicator (0, 1, 2...)
-     html += `<div style="width:24px;text-align:right;font-size:10px;font-family:var(--mono);font-weight:${isActRow?'bold':'normal'};color:${isActRow?'var(--amber)':'var(--dim)'}">${r}</div>`;
+     html += `<div style="width:24px;text-align:right;font-size:11px;font-family:var(--mono);font-weight:${isActRow?'bold':'normal'};color:${isActRow?'var(--amber)':'var(--dim)'}">${r}</div>`;
 
-     // Draw Cells
      for(let c=0; c<maxCols; c++) {
         const key = `${r},${c}`;
         const char = grid[key];
         const isNew = newCells.includes(key);
 
-        let bg = 'rgba(20,30,50,0.4)';
-        let bc = 'rgba(30,41,59,0.6)';
-        let tc = 'transparent';
-        let content = '·'; // Empty cell dot
+        let bg = 'rgba(30,41,59,0.4)', bc = 'rgba(51,65,85,0.6)', tc = 'transparent', content = '·';
+        let anim = '';
 
         if (char !== undefined) {
            content = char === ' ' ? '␣' : esc(char);
            if (isNew) {
-             // Flash newly printed cells in GREEN
-             bg = 'rgba(0,230,118,0.25)';
-             bc = 'var(--green)';
-             tc = 'var(--green)';
+             // Flash exactly what just printed in bright GREEN
+             bg = 'rgba(16,185,129,0.25)'; bc = '#10b981'; tc = '#34d399';
+             anim = 'transform:scale(1.2); box-shadow:0 0 12px rgba(16,185,129,0.5); z-index:2;';
            } else {
-             // Previously printed cells in BLUE/YELLOW
-             bg = 'rgba(68,138,255,0.15)';
-             bc = 'rgba(68,138,255,0.4)';
-             tc = '#93c5fd';
-             // Differentiate alphabets/numbers from symbols
+             // Previously printed cells settle into Blue/Gold
+             bg = 'rgba(59,130,246,0.15)'; bc = 'rgba(59,130,246,0.4)'; tc = '#93c5fd';
+             // Differentiate alphabets/numbers from symbols like '*'
              if (char !== '*' && char !== ' ') {
-                tc = '#fcd34d'; // Gold for numbers/letters
+                tc = '#fcd34d'; // Bright gold for numbers & letters!
              }
            }
         } else if (isActRow) {
-           // Highlight current row background slightly
-           bg = 'rgba(255,171,64,0.06)';
-           bc = 'rgba(255,171,64,0.2)';
+           // Highlight the current empty row we are sitting on
+           bg = 'rgba(245,158,11,0.06)'; bc = 'rgba(245,158,11,0.2)';
         }
-
-        // Pop animation for newly added cells
-        const anim = isNew ? 'transform:scale(1.15);box-shadow:0 0 12px rgba(0,230,118,0.4);z-index:2;' : '';
 
         html += `<div style="width:32px;height:32px;border-radius:6px;border:1px solid ${bc};background:${bg};color:${tc};display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:16px;font-weight:bold;transition:all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);${anim}">
            ${content}
@@ -1657,9 +1853,9 @@ function rndrPattern(s) {
      }
      html += `</div>`;
   }
-  html += `</div>`;
+  html += `</div></div>`;
 
-  // 3. Explanation Text
+  // 3. Output Explanation
   html += mkExplain(explain, newCells.length ? '#10b981' : '#3b82f6');
   html += `</div>`;
 
@@ -1722,46 +1918,55 @@ function bldFuncLoop(tSteps, code){
   
   VA.steps = steps.length ? steps : [{line:0,lineText:'(no steps)',vars:{},changed:{},output:'',idx:0}];
 }
+// ── VARIABLES VISUALIZER (Fixes the crash) ───────────────────────────────
+function bldVars(userSteps) {
+  const steps = [];
+  const seen = {};
+  steps.push({state:{}, changed:{}, line:'Program begins', explain:'Variables will be created as each line runs.'});
 
-function bldVars(tSteps){
-  const steps=[];const seen={};
-  const codeLines=tSteps.filter(s=>s.event==='line'&&s.line_text);
-  steps.push({state:{},changed:{},op:null,output:'',line:'Program begins',explain:'Variables will be created as each line runs.'});
-  codeLines.forEach(s=>{
-    const sv=s.variables||{};const changed={};
-    Object.entries(sv).forEach(([k,v])=>{if(seen[k]!==v){changed[k]=v;seen[k]=v;}});
-    const line=s.line_text.trim();
-    let op=null;let explain='';
-    if(line.includes('=')&&!/^(if|while|for|print)/.test(line)){
-      const eq=line.indexOf('=');
-      const varName=line.slice(0,eq).trim().replace(/[^\w]/g,'');
-      const expr=line.slice(eq+1).trim();
-      const newVal=seen[varName];
-      const binMatch=expr.match(/^(\w+)\s*([\+\-\*\/\%\/\/\*\*])\s*(\w+)$/);
-      if(binMatch){
-        const[,a,op2,b]=binMatch;
-        const av=seen[a]!==undefined?seen[a]:a;
-        const bv=seen[b]!==undefined?seen[b]:b;
-        op={type:'binop',varName,expr,newVal,a,b,op2,av,bv};
-        explain=`${varName} = ${a} ${op2} ${b} = ${av} ${op2} ${bv} = ${newVal}`;
-      } else if(expr.match(/^[\d\.\-]+$||^['"].+['"]$||^True$||^False$/)){
-        op={type:'literal',varName,expr,newVal};
-        explain=`${varName} = ${newVal}. Type: ${/^[\d\.]+$/.test(String(newVal))?'number':String(newVal).startsWith("'")||String(newVal).startsWith('"')?'string':newVal==='True'||newVal==='False'?'boolean':'value'}`;
-      } else {
-        op={type:'assign',varName,expr,newVal};
-        explain=`${varName} = ${newVal}`;
-      }
-    } else if(line.startsWith('print')){
-      explain=s.output?`Output: ${s.output.trim()}`:line;
-    }
-    const isClean=Object.keys(changed).every(k=>!['args','kwargs'].includes(k)&&!String(seen[k]).includes('function')&&!String(seen[k]).includes('<_io'));if((Object.keys(changed).length&&isClean)||s.output){
-      steps.push({state:{...seen},changed,op,output:s.output,line,explain});
+  userSteps.forEach(s => {
+    const sv = s.variables || {};
+    const changed = {};
+    Object.entries(sv).forEach(([k,v]) => {
+      if(seen[k] !== v) { changed[k] = v; seen[k] = v; }
+    });
+    
+    const isClean = Object.keys(changed).every(k => !['args','kwargs'].includes(k) && !String(seen[k]).includes('function'));
+    if ((Object.keys(changed).length && isClean) || s.output) {
+      steps.push({
+        state: {...seen}, changed, output: s.output,
+        line: s.line_text ? s.line_text.trim() : '',
+        explain: Object.keys(changed).length ? `Updated variables: ${Object.keys(changed).join(', ')}` : 'Printed output.'
+      });
     }
   });
-  if(steps.length<=1)steps.push({state:{},changed:{},op:null,output:'',line:'No variables found',explain:'Write: x = 10'});
-  VA.steps=steps;
+  if(!steps.length) steps.push({state:{}, changed:{}, line:'', explain:'No variables tracked.'});
+  VA.steps = steps;
 }
 
+function rndrVars(s) {
+  const {state={}, changed={}, explain, output} = s;
+  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:15px;width:100%;max-width:500px">`;
+
+  if (Object.keys(state).length) {
+      html += `<div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center; margin-bottom:20px;">`;
+      Object.entries(state).forEach(([k, v]) => {
+          const isNew = k in changed;
+          const val = String(v).replace(/^'|'$/g, '');
+          html += `
+          <div style="background:var(--surface2); border:2px solid ${isNew ? 'var(--cyan)' : 'var(--border2)'}; border-radius:10px; padding:10px 24px; text-align:center; transition:all 0.3s; ${isNew ? 'transform:scale(1.1); box-shadow:0 0 15px rgba(34,211,238,0.3)' : ''}">
+              <div style="font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;margin-bottom:4px">${esc(k)}</div>
+              <div style="font-size:20px;font-weight:800;color:${isNew ? 'var(--cyan)' : 'var(--text)'};font-family:var(--mono)">${esc(val)}</div>
+          </div>`;
+      });
+      html += `</div>`;
+  }
+
+  html += mkExplain(explain || 'Tracing variables...', 'var(--blue)');
+  if(output) html += mkOutput(output);
+  html += `</div>`;
+  setView(html);
+}
 function bldGeneral(userSteps){
   VA.steps=userSteps.slice(0,200).map(s=>({line_text:s.line_text,vars:s.variables,output:s.output,
     msg:s.line_text||'',explain:'',desc:''}));
@@ -1769,154 +1974,163 @@ function bldGeneral(userSteps){
 }
 // ── ARRAY OPERATIONS (INSERT, POP, TRAVERSAL) ──────────────────────────
 // ── ARRAY (LIST FORMAT WITH ANIMATIONS) ──────────────────────────────────
+// ── ARRAY VISUALIZER (Dynamic Operations Tracker) ────────────────────────
 function bldArray(tSteps, code) {
   const steps = [];
-  let lastArr = null;
+  let targetVarName = null;
+  let prevArr = [];
 
-  steps.push({
-    arr: [], op: 'init', msg: 'Array created',
-    explain: 'An array is a collection of items stored in sequence. Each item has an index (position) starting from 0.'
-  });
+  // Find the first list variable in the trace
+  for (const s of tSteps) {
+    const vars = s.variables || {};
+    const arrEntry = Object.entries(vars).find(([k, v]) => typeof v === 'string' && v.startsWith('[') && v.endsWith(']'));
+    if (arrEntry) { targetVarName = arrEntry[0]; break; }
+  }
 
   tSteps.forEach(s => {
-    if (s.event !== 'line' || !s.line_text) return;
-    const sv = s.variables || {};
-    
-    // Find the list variable in the current state
-    const arrKey = Object.keys(sv).find(k => sv[k].startsWith('['));
-    if (!arrKey) return;
+      if (s.event !== 'line') return;
+      const vars = s.variables || {};
+      const currentArrStr = vars[targetVarName];
 
-    const arrRaw = sv[arrKey];
-    const currentArr = arrRaw.replace(/[\[\] ]/g, '').split(',').map(x => x.trim()).filter(x => x);
-    const line = s.line_text.trim();
-    
-    // Determine the operation for the animation
-    let op = 'view', idx = -1, explain = `Current state of ${arrKey}.`;
-    if (line.includes('.append')) { 
-      op = 'append'; 
-      idx = currentArr.length - 1;
-      explain = `Adding ${currentArr[idx]} to the very end of the list.`;
-    } else if (line.includes('.insert')) { 
-      op = 'insert'; 
-      const match = line.match(/\.insert\((\d+)/);
-      idx = match ? parseInt(match[1]) : -1;
-      explain = `Inserting an element at index ${idx}. The elements to the right must shift to make room!`;
-    } else if (line.includes('.pop')) { 
-      op = 'pop'; 
-      explain = `Removing an element. The list shrinks and indices to the right shift left.`;
-    }
+      if (currentArrStr) {
+         // Safely parse the python list string "[1, 2, 3]" into a JS array
+         const arrText = currentArrStr.substring(1, currentArrStr.length - 1).trim();
+         const parsed = arrText ? arrText.split(',').map(x => x.trim()) : [];
+         
+         const lineText = (s.line_text || '').trim();
+         let action = "Reading Array";
+         if (lineText.includes('.append(')) action = "Appended to end";
+         else if (lineText.includes('.pop(')) action = "Popped element";
+         else if (lineText.includes('.insert(')) action = "Inserted element";
+         else if (lineText.includes('.remove(')) action = "Removed element";
+         else if (lineText.includes('.sort(')) action = "Sorted array";
+         else if (lineText.includes('.reverse(')) action = "Reversed array";
+         else if (lineText.includes('=')) action = "Modified element";
 
-    if (arrRaw !== lastArr) {
-      lastArr = arrRaw;
-      steps.push({
-        arr: [...currentArr],
-        op: op,
-        activeIdx: idx,
-        msg: line,
-        explain: explain,
-        output: s.output
-      });
-    }
+         // Compare with previous step to highlight exactly what changed!
+         let changedIdx = -1;
+         if (parsed.length > prevArr.length) changedIdx = parsed.length - 1; // Appended
+         else if (parsed.length === prevArr.length) {
+             for(let i=0; i<parsed.length; i++) {
+                if (parsed[i] !== prevArr[i]) { changedIdx = i; break; }
+             }
+         }
+         prevArr = [...parsed];
+
+         steps.push({
+             arr: parsed, changedIdx, action, code: lineText,
+             msg: `📦 Array Operation`,
+             explain: `Executed: ${lineText} ➔ ${action}`
+         });
+      }
   });
+
+  if(!steps.length) steps.push({arr:[], changedIdx:-1, msg:'Array', explain:'No array operations detected.'});
   VA.steps = steps;
 }
 
 function rndrArray(s) {
-  const { arr = [], op, activeIdx, explain, output } = s;
+   const { arr=[], changedIdx, code, explain } = s;
+   let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;gap:15px;padding-bottom:20px;">`;
 
-  // Assign CSS classes based on the operation
-  const states = arr.map((_, i) => {
-    if (i === activeIdx) return op === 'append' ? 'sorted' : 'active';
-    return 'normal';
-  });
+   // The Array Canvas
+   html += `<div class="arrrow" style="margin-bottom:15px; padding:20px; background:var(--surface2); border-radius:12px; border:1px solid var(--border); width:100%; max-width:600px; justify-content:center; min-height:100px; box-shadow:inset 0 0 15px rgba(0,0,0,0.3)">`;
+   
+   if (arr.length > 0) {
+       arr.forEach((val, i) => {
+          // Highlight the box that just changed!
+          const isChanged = i === changedIdx;
+          const bg = isChanged ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.1)';
+          const bc = isChanged ? '#10b981' : '#3b82f6';
+          const tc = isChanged ? '#34d399' : '#93c5fd';
+          const anim = isChanged ? 'animation: cardpop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); transform: scale(1.1); z-index:5;' : 'transform: scale(1);';
+          const shadow = isChanged ? 'box-shadow: 0 0 15px rgba(16,185,129,0.5);' : '';
 
-  let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:20px;width:100%">`;
-  
-  // The Visual List
-  html += `<div class="arrrow" style="margin-bottom:30px">`;
-  arr.forEach((val, i) => {
-    const cls = states[i];
-    const isNew = i === activeIdx && op === 'append';
-    html += `
-      <div class="el ${cls}" style="width:60px; height:60px; transition: all 0.4s; ${isNew ? 'animation: cardpop 0.5s ease;' : ''}">
-        ${esc(val)}
-        <span class="idx" style="bottom:-22px; font-weight:bold; color:var(--cyan)">[${i}]</span>
-      </div>`;
-  });
-  html += `</div>`;
+          html += `
+          <div style="position:relative; width:50px; height:50px; border-radius:8px; border:2px solid ${bc}; background:${bg}; color:${tc}; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:16px; font-weight:bold; transition:all 0.3s; ${anim} ${shadow}">
+             ${esc(String(val))}
+             <span style="position:absolute; bottom:-22px; font-size:11px; color:var(--muted); font-weight:normal">[${i}]</span>
+          </div>`;
+       });
+   } else {
+       html += `<div style="color:var(--muted); font-family:var(--mono); margin:auto;">[ Empty Array ]</div>`;
+   }
+   html += `</div>`;
 
-  // Pointer indicator
-  if (activeIdx >= 0) {
-    html += `<div style="display:flex; gap:4px; margin-top:-25px; margin-bottom:10px">`;
-    for (let i = 0; i < arr.length; i++) {
-      html += `<div style="width:60px; text-align:center; font-size:24px; color:var(--amber); opacity:${i === activeIdx ? 1 : 0}; transition:0.3s">▲</div>`;
-    }
-    html += `</div>`;
-  }
+   // Action Executed Box
+   html += `<div style="background:rgba(59, 130, 246, 0.1); border:2px dashed #3b82f6; color:#93c5fd; padding:12px 24px; border-radius:8px; font-family:var(--mono); text-align:center; max-width:500px;">
+      ▶ ${esc(code || 'Array Initialized')}
+   </div>`;
 
-  html += mkExplain(explain, '#3b82f6');
-  if (output) html += mkOutput(output);
-  html += `</div>`;
-
-  setView(html);
+   html += mkExplain(explain, '#3b82f6');
+   html += `</div>`;
+   setView(html);
 }
 
 // ── ERROR ANALYSIS (CRASH VISUALIZER) ──────────────────────────────────
-function bldError(code, tSteps, stderr){
-  const lines = code.split('\n');
-  const steps = [];
-  const execSteps = tSteps.filter(s => s.event === 'line' && s.line > 0);
-  const errStep = tSteps.find(s => s.event === 'error');
-  
-  // Find the exact message and line
-  const errMsg = (errStep ? errStep.line_text : '').replace('ERROR — ', '') || 
-                 (stderr ? stderr.split('\n').reverse().find(l => l.includes('Error')) : 'Unknown Runtime Error');
-  const errLineNo = errStep ? errStep.line : (execSteps.length ? execSteps[execSteps.length-1].line : 1);
-  
-  steps.push({lines, cur:-1, errLine:-1, errMsg:'', phase:'start', msg:'Starting execution...', explain:'Watching for potential crashes.'});
+// ── ERROR VISUALIZER (Friendly Debugger) ─────────────────────────────────
+function bldError(code, tSteps, stderr) {
+   const steps = [];
+   
+   // Find the last known step before the crash
+   const lastStep = tSteps.length > 0 ? tSteps[tSteps.length - 1] : null;
+   const lastLine = lastStep && lastStep.line_text ? lastStep.line_text.trim() : 'Unknown Line';
+   const lineNum = lastStep ? lastStep.line : '?';
 
-  execSteps.forEach(s => {
-    steps.push({lines, cur:s.line, errLine:-1, errMsg:'', phase:'run', msg:`Line ${s.line} running`, explain:'Executing line...'});
-  });
+   // Parse the stderr to find the specific Python Exception
+   let errName = "Runtime Error";
+   let errMsg = stderr ? stderr.split('\n').filter(l => l.trim()).pop() : "An unknown error occurred.";
+   const errMatch = stderr ? stderr.match(/(\w+Error):\s*(.*)/) : null;
+   if (errMatch) {
+       errName = errMatch[1];
+       errMsg = errMatch[2];
+   }
 
-  if(errStep || stderr) {
-    steps.push({lines, cur:errLineNo, errLine:errLineNo, errMsg, phase:'error', msg:'💥 CRASH DETECTED', 
-      explain: `Python stopped at line ${errLineNo}. Error: ${errMsg}`});
-    
-    let fix = "Check your logic here.";
-    if(errMsg.includes('IndexError')) fix = "💡 SOLUTION: You tried to access an index that doesn't exist. Check if your loop range is too large.";
-    else if(errMsg.includes('NameError')) fix = "💡 SOLUTION: You used a variable before defining it. Check your spelling!";
-    else if(errMsg.includes('ZeroDivisionError')) fix = "💡 SOLUTION: You can't divide by zero. Add an 'if' check before dividing.";
-    
-    steps.push({lines, cur:errLineNo, errLine:errLineNo, errMsg, phase:'fix', msg:'How to fix this:', explain: fix});
-  }
-  VA.steps = steps;
+   // The "AI Teacher" Hints Database
+   let hint = "Check your syntax and logic carefully.";
+   if (errName === "IndexError") hint = "You tried to access a position in a list that doesn't exist! Remember, lists start at index 0.";
+   else if (errName === "TypeError") hint = "You are mixing incompatible types. For example, you can't add a string and an integer together!";
+   else if (errName === "NameError") hint = "You used a variable before creating it, or you misspelled its name.";
+   else if (errName === "SyntaxError" || errName === "IndentationError") hint = "You have a typo! Check for missing colons (:), unclosed brackets, or incorrect indentation spaces.";
+   else if (errName === "ValueError") hint = "A function got the right type, but a bad value (like trying to convert the word 'hello' into an integer).";
+   else if (errName === "ZeroDivisionError") hint = "You attempted to divide a number by zero, which is mathematically impossible!";
+
+   steps.push({
+       errName, errMsg, lastLine, lineNum, hint, stderr,
+       msg: `🚨 ${errName}`,
+       explain: `The program crashed! Let's debug it.`
+   });
+
+   VA.steps = steps;
 }
 
 function rndrError(s) {
-  const {lines, cur, errLine, errMsg, phase, explain} = s;
-  let html = `<div style="width:100%;max-width:500px;display:flex;flex-direction:column;gap:10px">`;
-  
-  if(phase === 'error' || phase === 'fix') {
-      html += `<div style="padding:12px;background:rgba(255,82,82,0.1);border:1px solid var(--red);border-radius:8px;color:var(--red);font-family:var(--mono);font-size:13px;animation:swpshake 0.3s ease">⚠️ ${esc(errMsg)}</div>`;
-  }
+   const { errName, errMsg, lastLine, lineNum, hint } = s;
+   let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;gap:15px;padding-bottom:20px;">`;
 
-  html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">`;
-  lines.forEach((l, i) => {
-    const ln = i + 1;
-    const isCur = ln === cur && phase === 'run';
-    const isErr = ln === errLine && (phase === 'error' || phase === 'fix');
-    
-    html += `<div style="display:flex;gap:10px;padding:4px 12px;${isErr?'background:rgba(255,82,82,0.15)':isCur?'background:rgba(255,171,64,0.1)':''}">
-      <span style="font-family:var(--mono);font-size:10px;color:var(--dim);min-width:20px;text-align:right">${ln}</span>
-      <span style="font-family:var(--mono);font-size:12px;color:${isErr?'var(--red)':'var(--text)'}">${esc(l) || ' '}</span>
-      ${isErr ? '<span style="margin-left:auto">❌</span>' : ''}
-    </div>`;
-  });
-  html += `</div>`;
-  
-  html += mkExplain(explain, phase==='fix'?'var(--green)':'var(--amber)') + `</div>`;
-  setView(html);
+   // Giant Red Alert Box
+   html += `<div style="background:rgba(239, 68, 68, 0.15); border:2px solid #ef4444; border-radius:12px; width:100%; max-width:500px; padding:25px; text-align:center; box-shadow:0 0 25px rgba(239,68,68,0.3); animation:pulseNode 2s infinite;">
+      <div style="font-size:32px; margin-bottom:10px;">💥</div>
+      <div style="font-size:22px; font-weight:900; color:#fca5a5; font-family:var(--mono); margin-bottom:5px; text-transform:uppercase; letter-spacing:1px">${esc(errName)}</div>
+      <div style="font-size:15px; color:#fecaca;">${esc(errMsg)}</div>
+   </div>`;
+
+   // Code Context Box (Where it died)
+   html += `<div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; width:100%; max-width:500px; padding:15px; text-align:left;">
+      <div style="font-size:11px; color:var(--muted); text-transform:uppercase; margin-bottom:8px; letter-spacing:1px; font-weight:bold;">Code Context (Line ${lineNum})</div>
+      <div style="background:rgba(0,0,0,0.4); padding:12px; border-radius:6px; font-family:var(--mono); color:#f87171; border-left:4px solid #ef4444;">
+         ▶ ${esc(lastLine)}
+      </div>
+   </div>`;
+
+   // The Teacher Hint Box
+   html += `<div style="background:rgba(245, 158, 11, 0.15); border:1px solid #f59e0b; border-radius:8px; width:100%; max-width:500px; padding:20px; color:#fcd34d; display:flex; gap:15px; align-items:center; box-shadow:inset 0 0 10px rgba(245,158,11,0.2)">
+      <div style="font-size:28px;">💡</div>
+      <div style="font-size:14px; line-height:1.5;"><strong>Teacher Tip:</strong> ${esc(hint)}</div>
+   </div>`;
+
+   html += `</div>`;
+   setView(html);
 }
 
 
@@ -1936,9 +2150,9 @@ function renderStep() {
     setView(mkArr2(s.arr, s.states) + mkWatchRow(s.watch) + mkExplain(s.explain || s.desc || '', '#fbbf24'));
   }
   else if (t === 'ARRAY') rndrArray(s);
-  else if (t === 'BINARY')    rndrBinary(s);
-  else if (t === 'LINEAR')    rndrLinear(s);
-  else if (t === 'RECURSION') rndrRec(s);
+  else if (t === 'LINEAR') rndrLinear(s);
+  else if (t === 'BINARY') rndrBinary(s);
+  else if (t === 'RECURSION') rndrRecursion(s);
   else if (t === 'STACK')     rndrStack(s);
   else if (t === 'QUEUE')     rndrQueue(s);
   else if (t === 'LL')        rndrLL(s);
@@ -1947,6 +2161,8 @@ function renderStep() {
   else if (t === 'GCD')       rndrGCD(s);
   else if (t === 'ERROR')     rndrError(s);
   else if (t === 'PATTERN')   rndrPattern(s);
+  else if (t === 'LOOP') rndrLoop(s);
+  else if (t === 'STRING') rndrString(s);
   else if (t === 'LOOP')      rndrLoop(s);
   else if (t === 'FUNC_LOOP') rndrFuncLoop(s);
   else if (t === 'COND')      rndrCond(s);
