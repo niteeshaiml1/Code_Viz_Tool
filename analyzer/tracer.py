@@ -29,7 +29,7 @@ _buf      = io.StringIO()       # captures print() output
 
 # ── redirect print() through our buffer ──────────────────────────────────────
 _real_print = builtins.print
-def _patched_print(*args, **kwargs):
+def _patched_print(*args, **kwargs):#bucket(virtual memory)
     kwargs.setdefault("file", _buf)
     _patched_print.__wrapped__(*args, **kwargs)
 _patched_print.__wrapped__ = _real_print

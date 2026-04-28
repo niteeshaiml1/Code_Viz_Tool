@@ -419,6 +419,23 @@ async function doAnalyze() {
   document.getElementById('abtn').disabled = true;
   (document.getElementById('abtn')||{textContent:''}).textContent = 'Analyzing…';
   try {
+    // 1. We added parseRes here!
+    const [traceRes, runRes, parseRes] = await Promise.all([
+      post('/trace', {code}).catch(() => ({steps:[]})),
+      post('/run', {code}).catch(() => ({stdout:'',stderr:''})),
+      post('/analyze', {code}).catch(() => ({stats: { complexity: 0 }, issues: []})) 
+    ]);
+
+    // 2. Pass the new parser data to a display function
+    displayParserStats(parseRes);
+
+    await buildAnimation(code, traceRes.steps || [], runRes.stdout || '', runRes.stderr || '');
+    goTab('anim');
+    toast('Animation & Stats ready!');
+  } catch(e) { 
+    toast(e.message, 'err'); 
+  }
+  try {
     const [traceRes, runRes] = await Promise.all([
       post('/trace', {code}).catch(() => ({steps:[]})),
       post('/run', {code}).catch(() => ({stdout:'',stderr:''}))
@@ -619,6 +636,59 @@ function rndrLinear(s) {
   setView(html);
 }
 
+function displayParserStats(parseRes) {
+  const stats = parseRes.stats || {};
+  const issues = parseRes.issues || [];
+  
+  // Update the bottom UI tag with the Complexity score
+  const detectedTag = document.getElementById('detected');
+  
+  // Use avg_complexity, but if it's 0 (like in a script without functions), use the conditions count!
+  let compScore = stats.avg_complexity > 0 ? stats.avg_complexity : (stats.conditions || 0);
+
+  if (compScore !== undefined) {
+    let health = '🟢 Good';
+    if (compScore > 4) health = '🟡 Complex';
+    if (compScore > 8) health = '🔴 Warning';
+    
+    // We add the complexity score right next to the algorithm type
+    detectedTag.innerHTML += ` <span style="margin-left:8px; opacity:0.7">| Complexity: ${compScore} (${health})</span>`;
+  }
+
+  // If there are issues (like a bare except), alert the user!
+  if (issues.length > 0) {
+    const issueText = issues[0].type || "Code Smell Detected";
+    toast(`⚠️ Parser Alert: ${issueText}`, 'err');
+  }
+}
+// ── LINEAR SEARCH BUILDER ─────────────────────────────────────
+function bldLinear(arr, target) {
+  const a = [...arr], steps = [];
+  steps.push({arr: [...a], states: a.map(()=>'normal'), watch: {target},
+    msg: '🔵 Linear Search Starts', desc: `Goal: Find ${target} by checking every element one by one from left to right.`});
+
+  let found = false;
+  for(let i = 0; i < a.length; i++) {
+    // Highlight the current element we are checking
+    steps.push({arr: [...a], states: a.map((_,k) => k < i ? 'discarded' : k === i ? 'scan' : 'normal'), watch: {i, checking: a[i]},
+      msg: `🔍 Checking index [${i}]`, desc: `Is ${a[i]} equal to our target (${target})?`});
+
+    if(a[i] === target) {
+      // We found it! Highlight green and stop searching.
+      steps.push({arr: [...a], states: a.map((_,k) => k < i ? 'discarded' : k === i ? 'found' : 'normal'), watch: {found_at: i},
+        msg: `🎉 Found it!`, desc: `Target ${target} located exactly at index ${i}.`});
+      found = true;
+      break;
+    }
+  }
+  
+  if(!found) {
+    steps.push({arr: [...a], states: a.map(()=>'discarded'), watch: {},
+      msg: '❌ Not Found', desc: `We checked every element. ${target} does not exist in the array.`});
+  }
+  
+  VA.steps = steps;
+}
 // ── BINARY SEARCH BUILDER & RENDERER ─────────────────────────────────────
 function bldBinary(arr, target){
   const a = [...arr], steps = [];
