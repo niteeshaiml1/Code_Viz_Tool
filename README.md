@@ -85,7 +85,7 @@ During this internship, I developed a comprehensive understanding of full-stack 
   It focused on understanding requirements, creating structured code, and implementing key features.
 </p>
 <p>
-  <a href="[https://github.com/niteeshaiml1/Code_Viz_Tool/blob/main/SURE%20Trust%20project%20document_codeviz.pdf" target=](https://github.com/niteeshaiml1/Code_Viz_Tool/blob/main/SURE%20Trust%20project%20document_codeviz.pdf)"_blank"><strong>→ View Full Project Report</strong></a>
+ <a href="https://github.com/niteeshaiml1/Code_Viz_Tool/blob/main/SURE%20Trust%20project%20document_codeviz.pdf" target="_blank"><strong>→ View Full Project Report</strong></a>
 </p>
 
 <!-- Project 2 -->
