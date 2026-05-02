@@ -63,7 +63,6 @@
 
 ## Overall Learning 
 
-> _This is a placeholder. Replace the text below with your personal learning summary._
 During this internship, I developed a comprehensive understanding of full-stack web development, system architecture, and applied machine learning. I gained hands-on experience building robust backend pipelines using FastAPI and developing high-performance, interactive frontends with React and Vanilla JavaScript. Additionally, I learned how to successfully integrate advanced NLP models—including fine-tuned BERT transformers, Whisper STT, and spaCy NER—into real-time, user-facing applications. Beyond technical implementation, this experience significantly strengthened my skills in architectural decoupling, API design, and delivering scalable AI solutions from conceptualization to deployment.
 
 <h2 style="color:#333;"> Projects Completed </h2>
@@ -80,17 +79,17 @@ During this internship, I developed a comprehensive understanding of full-stack 
 </div>
 
 <!-- Project 1 -->
-<h3 id="project1">Project 1: <!CODE VISUALIZER></h3>
+<h3 id="project1">Project 1: CODE VISUALIZER </h3>
 <p>
   This project involved designing and developing a basic functional module using the core concepts taught in the course.
   It focused on understanding requirements, creating structured code, and implementing key features.
 </p>
 <p>
-  <a href="[<!-- Add link to full report -->" target=](https://github.com/niteeshaiml1/Code_Viz_Tool/blob/main/SURE%20Trust%20project%20document_codeviz.pdf)"_blank"><strong>→ View Full Project Report</strong></a>
+  <a href="[https://github.com/niteeshaiml1/Code_Viz_Tool/blob/main/SURE%20Trust%20project%20document_codeviz.pdf" target=](https://github.com/niteeshaiml1/Code_Viz_Tool/blob/main/SURE%20Trust%20project%20document_codeviz.pdf)"_blank"><strong>→ View Full Project Report</strong></a>
 </p>
 
 <!-- Project 2 -->
-<h3 id="project2">Project 2: <!SENTIMENT ANALYZER FOR BRANDS></h3>
+<h3 id="project2">Project 2: SENTIMENT ANALYZER FOR BRANDS </h3>
 <p>
   This project expanded on intermediate concepts and required integrating multiple components to build a more complete solution.
   It enhanced understanding of UI/UX design, modular coding, and testing.
@@ -100,7 +99,7 @@ During this internship, I developed a comprehensive understanding of full-stack 
 </p>
 
 <!-- Project 3 -->
-<h3 id="project3">Project 3: <!LEGAL DOCUMENT ANALYZER></h3>
+<h3 id="project3">Project 3: LEGAL DOCUMENT ANALYZER </h3>
 <p>
   The final project showcased the practical application of all concepts learned throughout the course.  
   It required planning, building, optimizing, and documenting a complete real-world project.
@@ -121,13 +120,11 @@ During this internship, I developed a comprehensive understanding of full-stack 
 
 ## **Learnings from LST and SST**
 
-<!-- add your experiences over here -->
-> _This is a placeholder. Replace the text below with your personal learning from LST and SST sessions summary._
 The Life Skill Training (LST) and Soft Skill Training (SST) sessions provided critical preparation for transitioning from an academic environment into the professional corporate sector. Through these sessions, I learned how to effectively communicate technical concepts to non-technical stakeholders, improving both my written and verbal presentation skills. The training also emphasized the importance of teamwork, professional etiquette, and time management when operating within project deadlines. Furthermore, the mock interviews and resume-building exercises helped me identify my core strengths and taught me how to articulate the business value of the technical projects I have developed.
 
 ## **Community Services**
 
-<!done public services which made me happy , hoping to do regularly>
+done public services which made me happy , hoping to do regularly
 
 During my internship period, I participated in multiple community-oriented activities .....<!Blood Donation Drive (Hyderabad): Volunteered at a local blood donation camp, where I donated blood and assisted organizers with basic logistical tasks to ensure a smooth and supportive experience for all donors.
 
@@ -136,13 +133,13 @@ Tree Plantation Initiative (Sphoorthy Engineering College): Participated in an e
 Elderly Care & Assistance (Local Community): Dedicated time to assist senior citizens in my neighborhood with their daily tasks and errands, providing essential support and companionship.>
 
 ### **Activities Involved**
-<!Hyderabad,Kamineni Hospital>
+Hyderabad,Kamineni Hospital
 - **Blood Donation** – Donated blood and supported basic assistance tasks during the camp.
   
- <!Public Park>
+ Public Park
 - **Tree Plantation Drive** – Participated by planting trees and contributing to environmental improvement.
 
-  <!Local area>
+  Local area
 - **Helping Elder Citizens** – Assisted two elderly individuals with simple daily tasks and provided support where needed. 
 
 <!-- you can write impacts according to your experience in your words-->
@@ -181,13 +178,13 @@ The internship certificate serves as an official acknowledgment of the successfu
 
 ## **Acknowledgments**
 
-<!I would like to express my sincere gratitude to the following individuals and organizations for their invaluable guidance, support, and mentorship throughout this internship program:
+I would like to express my sincere gratitude to the following individuals and organizations for their invaluable guidance, support, and mentorship throughout this internship program:
 
 Prof. Radhakumari Challa , Executive Director and Founder - SURE ProEd (formerly SURE Trust)
 
 Bhargavesh Dakka , Decision Scientist - II @ Mu Sigma Inc. - Project Mentor & Course Instructor (G36 Python)
 
-SURE ProEd Management & Technical Team - For providing an excellent platform and resources for skill upgradation and rural youth empowerment.>
+SURE ProEd Management & Technical Team - For providing an excellent platform and resources for skill upgradation and rural youth empowerment.
 
 - [Prof. Radhakumari Challa](https://www.linkedin.com/in/prof-radhakumari-challa-a3850219b) , Executive Director and Founder - [SURE Trust](https://www.suretrustforruralyouth.com/)
 
