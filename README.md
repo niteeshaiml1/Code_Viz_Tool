@@ -18,31 +18,31 @@
 
 <h2 style = "color:#333;"> Student Details </h2>
 <div align = "left" style ="margin: 20px; font-size: 16px;">
-    <p><strong>Name:</strong> <!V.Niteesh></p>
-    <p><strong>Email ID:</strong> <!niteeshvudaru@gmail.com> </p>
-    <p><strong>College Name:</strong> <!Sphoorthy Engineering College> </p>
-    <p><strong>Branch/Specialization :</strong> <!AIML> </p>
-    <p><strong>College ID:</strong> < !23N81A66G7> </p>
+    <p><strong>Name:</strong> <V.Niteesh></p>
+    <p><strong>Email ID:</strong> <niteeshvudaru@gmail.com> </p>
+    <p><strong>College Name:</strong> <Sphoorthy Engineering College> </p>
+    <p><strong>Branch/Specialization :</strong> <AIML> </p>
+    <p><strong>College ID:</strong> <23N81A66G7> </p>
 </div>
 
 <hr style="border: 0; border-top: 1px solid #ccc; width: 80%;" />
 
 <h2 style="color:#333;"> Course Details </h2>
 <div align="left" style="margin: 20px; font-size: 16px;">
-    <p><strong>Course Opted:</strong> <!G36 Pyhton> </p>
-    <p><strong>Instructor Name:</strong> <!Bhargavesh Dakka> </p>
+    <p><strong>Course Opted:</strong> <G36 Pyhton> </p>
+    <p><strong>Instructor Name:</strong> <Bhargavesh Dakka> </p>
 </div>
 <div align="left" style="margin: 20px; font-size: 16px;">
-    <p><strong>Duration:</strong> <!6 Months> </p>
+    <p><strong>Duration:</strong> <6 Months> </p>
 
 <hr style="border: 0; border-top: 1px solid #ccc; width: 80%;" />
 
 <h2 style="color:#333;"> Trainer Details </h2>
 <div align="left" style="margin: 20px; font-size: 16px;">
 
-<p><strong>Trainer Name:</strong> <!Bhargavesh Dakka></p>
+<p><strong>Trainer Name:</strong> <Bhargavesh Dakka></p>
 <p><strong>Trainer Email ID:</strong> <!–– Add trainer email ––></p>
-<p><strong>Trainer Designation:</strong> <!Decision Scientist - II @ Mu Sigma Inc></p>
+<p><strong>Trainer Designation:</strong> <Decision Scientist - II @ Mu Sigma Inc></p>
 
 <hr style="border: 0; border-top: 1px solid #ccc; width: 80%;" />
 
