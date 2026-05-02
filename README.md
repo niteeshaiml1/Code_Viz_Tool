@@ -81,8 +81,8 @@ During this internship, I developed a comprehensive understanding of full-stack 
 <!-- Project 1 -->
 <h3 id="project1">Project 1: CODE VISUALIZER </h3>
 <p>
-  This project involved designing and developing a basic functional module using the core concepts taught in the course.
-  It focused on understanding requirements, creating structured code, and implementing key features.
+  Code Visualizer with Step-by-Step Animations (CodeViz)
+CodeViz addresses the challenge of conceptualizing complex algorithms by engineering a full-stack, deterministic execution engine that visualizes memory mutations in real-time. Bypassing heavy frameworks and probabilistic AI models, I utilized Python’s native C-level hooks (sys.settrace) inside secure subprocesses to trace dynamic execution, while employing the ast module for instant static complexity analysis. This backend data is seamlessly translated by a custom, high-performance Vanilla JavaScript state machine into sub-second CSS animations. By integrating directly with the public GitHub REST API, the platform functions completely database-free, resulting in a stateless, lightning-fast educational tool that demystifies how a machine allocates memory.
 </p>
 <p>
  <a href="https://github.com/niteeshaiml1/Code_Viz_Tool/blob/main/SURE%20Trust%20project%20document_codeviz.pdf" target="_blank"><strong>→ View Full Project Report</strong></a>
@@ -91,8 +91,8 @@ During this internship, I developed a comprehensive understanding of full-stack 
 <!-- Project 2 -->
 <h3 id="project2">Project 2: SENTIMENT ANALYZER FOR BRANDS </h3>
 <p>
-  This project expanded on intermediate concepts and required integrating multiple components to build a more complete solution.
-  It enhanced understanding of UI/UX design, modular coding, and testing.
+  Multi-Brand Sentiment Analysis System
+This project provides an automated competitive intelligence solution for marketing teams overwhelmed by the velocity and unstructured nature of social media data. I implemented a pre-trained, fine-tuned BERT transformer model capable of nuanced NLP tasks, including sarcasm detection and multi-brand attribution within single posts. This ML engine is supported by an asynchronous FastAPI and Uvicorn backend, which processes incoming data and routes it to a PostgreSQL database for historical tracking. The frontend, built with React and Vite, features a live crisis alert dashboard that automatically flags when negative sentiment exceeds predefined thresholds, effectively shifting a brand's strategy from reactive damage control to proactive monitoring.
 </p>
 <p>
   <a href="<!-- Add link to full report -->" target="_blank"><strong>→ View Full Project Report</strong></a>
@@ -101,8 +101,7 @@ During this internship, I developed a comprehensive understanding of full-stack 
 <!-- Project 3 -->
 <h3 id="project3">Project 3: LEGAL DOCUMENT ANALYZER </h3>
 <p>
-  The final project showcased the practical application of all concepts learned throughout the course.  
-  It required planning, building, optimizing, and documenting a complete real-world project.
+ Legal DocGen AI was developed to democratize access to essential legal documents by removing language, financial, and technical barriers. Operating entirely without user authentication, the system features a voice-first interface that captures audio via the MediaRecorder API and transcribes it using Whisper STT (with a Sarvam AI fallback). A trained spaCy NER model then extracts critical legal entities, routing any low-confidence results (<0.75) to a mandatory review screen to prevent hallucinated clauses. Once the user confirms the data, a FastAPI backend injects the entities into lawyer-drafted Jinja2 HTML templates, generating a secure, downloadable PDF via WeasyPrint.
 </p>
 <p>
   <a href="<!-- Add link to full report -->" target="_blank"><strong>→ View Full Project Report</strong></a>
